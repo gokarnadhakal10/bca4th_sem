@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Select Role</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #74ebd5, #acb6e5);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+    }
+
+    form {
+      background: #fff;
+      padding: 40px 50px;
+      border-radius: 15px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+      text-align: center;
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 25px;
+    }
+
+    input[type="button"] {
+      width: 150px;
+      padding: 12px;
+      margin: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.3s;
+      color: white;
+    }
+
+   
+
+    input[value="next"] {
+      background-color: #28a745;
+    }
+    input[value="next"]:hover {
+      background-color: #21ad42;
+    }
+  </style>
+</head>
+<body>
+
+  <form>
+    <h2>click button for Student Registration</h2>
+    <input type="button" value="next" onclick="window.location.href='StudentRegistration.html'">
+  </form>
+
+</body>
+</html>
