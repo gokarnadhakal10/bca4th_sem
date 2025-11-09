@@ -1,3 +1,10 @@
+<?php
+session_start();
+if (!isset($_SESSION['email'])) {
+    header("Location: login.html");
+    exit;
+}
+?>
 
 
 
@@ -6,68 +13,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Voting Dashboard</title>
+    
+     <style>
+     body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #4CAF50, #2e8b57);
+    margin: 0;
+    padding: 0;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    text-align: center;
+}
+
+h1 {
+    margin-bottom: 30px;
+    font-size: 28px;
+    text-shadow: 1px 1px 2px black;
+}
+
+.card {
+    background: white;
+    color: #333;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    display: inline-block;
+    width: 250px;
+    margin: 15px;
+    padding: 20px;
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: scale(1.05);
+}
+
+.card h2 {
+    margin-bottom: 15px;
+}
+
+button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+</style>
 </head>
 <body>
-    
+    <div class="container">
+        <h1>Welcome to School Election Voting System</h1>
 
+        <div class="card">
+            <h2>School President</h2>
+            <form action="candidates.php" method="GET">
+                <input type="hidden" name="position" value="president">
+                <button type="submit">View Candidates</button>
+            </form>
+        </div>
 
+        <div class="card">
+            <h2>School Vice President</h2>
+            <form action="candidates.php" method="GET">
+                <input type="hidden" name="position" value="vice_president">
+                <button type="submit">View Candidates</button>
+            </form>
+        </div>
 
-<?php
-session_start();
-if (!isset($_SESSION['email']) || $_SESSION['role'] !== 'voter') {
-    header("Location: login.html");
-    exit;
-}
-
-$conn = new mysqli("localhost", "root", "", "voting_system");
-if ($conn->connect_error) die("Connection failed: " . $conn->connect_error);
-
-// Get voter id
-$email = $_SESSION['email'];
-$stmt = $conn->prepare("SELECT id FROM user WHERE email=?");
-$stmt->bind_param("s", $email);
-$stmt->execute();
-$voter_result = $stmt->get_result();
-$voter = $voter_result->fetch_assoc();
-$voter_id = $voter['id'];
-
-// Check if voter already voted
-$vote_check = $conn->prepare("SELECT * FROM votes WHERE voter_id=?");
-$vote_check->bind_param("i", $voter_id);
-$vote_check->execute();
-if ($vote_check->get_result()->num_rows > 0) {
-    echo "<h2>You have already voted!</h2>";
-    exit;
-}
-
-// Handle vote submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $candidate_id = $_POST['candidate_id'] ?? 0;
-    if ($candidate_id) {
-        $stmt = $conn->prepare("INSERT INTO votes (voter_id, candidate_id) VALUES (?, ?)");
-        $stmt->bind_param("ii", $voter_id, $candidate_id);
-        $stmt->execute();
-        echo "<h2>Vote submitted successfully!</h2>";
-        exit;
-    }
-}
-
-// Fetch all candidates
-$candidates = $conn->query("SELECT * FROM candidates");
-?>
-
-<h1>Voter Dashboard</h1>
-<h2>Cast Your Vote</h2>
-<form method="post">
-    <?php while ($row = $candidates->fetch_assoc()): ?>
-        <input type="radio" name="candidate_id" value="<?php echo $row['id']; ?>" required>
-        <?php echo $row['name'] . " (" . $row['symbol'] . ")"; ?><br>
-    <?php endwhile; ?>
-    <br>
-    <input type="submit" value="Vote">
-</form>
-
-<a href="logout.php">Logout</a>
+        <div class="card">
+            <h2>Class CR</h2>
+            <form action="candidates.php" method="GET">
+                <input type="hidden" name="position" value="class_cr">
+                <button type="submit">View Candidates</button>
+            </form>
+        </div>
+    </div>
 </body>
 </html>
+
+
