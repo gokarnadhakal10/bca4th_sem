@@ -1,7 +1,4 @@
-
-
-
-  <?php
+<?php
 // Database connection
 $servername = "localhost";
 $username = "root";
@@ -44,8 +41,8 @@ if (!preg_match('/^[0-9]{10}$/', $mobile)) {
 }
 
 // Validate password length
-if (strlen($password) < 6 || strlen($password) > 10) {
-    $errors[] = "Password must be between 6 and 10 characters.";
+if (strlen($password) < 6 || strlen($password) > 100) {
+    $errors[] = "Password must be between 6 and 100 characters.";
 }
 
 // Confirm password
@@ -68,27 +65,28 @@ if (!empty($errors)) {
     foreach ($errors as $error) {
         echo "<p style='color:red;'>$error</p>";
     }
-    echo "<p><a href='register_form.php'>Go back to registration</a></p>";
+    echo "<p><a href='studentRegistration.html'>Go back to registration</a></p>";
     exit;
 }
 
-// Hash the password
-$hashed_password = password_hash($password, PASSWORD_DEFAULT);
+// Plain password (matches login.php)
+$plain_password = $password;
 
-// Automatically assign role as 'voter'
+//  Automatically assign role as 'voter'
 $role = 'voter';
 
 // Insert data into database
 $stmt = $conn->prepare("INSERT INTO user (name, email, student_id, mobile, password, role) VALUES (?, ?, ?, ?, ?, ?)");
-$stmt->bind_param("ssssss", $name, $email, $student_id, $mobile, $hashed_password, $role);
+$stmt->bind_param("ssssss", $name, $email, $student_id, $mobile, $plain_password, $role);
 
 if ($stmt->execute()) {
     echo "<p style='color:green;'>Registration successful!</p>";
     echo "<p><a href='login.html'>Go to Login</a></p>";
 } else {
-    echo "Error: " . $conn->error;
+    echo "<p style='color:red;'>Error: " . $conn->error . "</p>";
 }
 
 $conn->close();
 ?>
+
 

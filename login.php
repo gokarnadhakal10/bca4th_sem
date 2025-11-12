@@ -19,8 +19,8 @@ if (empty($email) || empty($password) || empty($role)) {
     exit;
 }
 
-// Prepare statement to find user
-$stmt = $conn->prepare("SELECT * FROM user WHERE email=? AND role=?");
+// Prepare statement to find user (case-insensitive for role)
+$stmt = $conn->prepare("SELECT * FROM user WHERE email=? AND LOWER(role)=LOWER(?)");
 $stmt->bind_param("ss", $email, $role);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -28,14 +28,14 @@ $result = $stmt->get_result();
 if ($result->num_rows === 1) {
     $user = $result->fetch_assoc();
 
-    // Verify password
-    if (password_verify($password, $user['password'])) {
-        $_SESSION["email"] = $email;
-        $_SESSION["role"] = $role;
+    // ✅ Plain password check
+    if ($password === $user['password']) {
+        $_SESSION["email"] = $user['email'];
+        $_SESSION["role"] = strtolower($user['role']);
         $_SESSION["name"] = $user['name'];
 
         // Redirect based on role
-        if ($role === "admin") {
+        if ($_SESSION['role'] === "admin") {
             header("Location: admin_dashboard.php");
         } else {
             header("Location: voter_dashboard.php");
