@@ -1,122 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login</title>
-  <style>
-    /* Reset default margins and paddings */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: "Poppins", Arial, sans-serif;
-    }
-
-    body {
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: linear-gradient(135deg, #74ebd5, #9face6);
-    }
-
-    form {
-      background: #ffffff;
-      padding: 40px 50px;
-      border-radius: 15px;
-      box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.1);
-      width: 320px;
-      text-align: center;
-    }
-
-    h2 {
-      margin-bottom: 25px;
-      color: #333;
-      font-size: 24px;
-      font-weight: 600;
-    }
-
-    input[type="email"],
-    input[type="password"],
-    select {
-      width: 100%;
-      padding: 12px 15px;
-      margin: 10px 0;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      outline: none;
-      transition: 0.3s;
-      font-size: 14px;
-      background-color: #fff;
-    }
-
-    input[type="email"]:focus,
-    input[type="password"]:focus,
-    select:focus {
-      border-color: #6a5acd;
-      box-shadow: 0 0 5px rgba(106, 90, 205, 0.4);
-    }
-
-    input[type="submit"] {
-      width: 100%;
-      padding: 12px;
-      margin-top: 15px;
-      background: #6a5acd;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: 600;
-      transition: 0.3s;
-    }
-
-    input[type="submit"]:hover {
-      background: #5848c2;
-      transform: scale(1.02);
-    }
-
-    p {
-      margin-top: 10px;
-      font-size: 14px;
-    }
-
-    a {
-      color: #6a5acd;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-
-    ::placeholder {
-      color: #888;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login</title>
+<style>
+body { font-family:Arial; display:flex; justify-content:center; align-items:center; height:100vh; background:linear-gradient(135deg,#74ebd5,#9face6); }
+form { background:#fff; padding:40px; border-radius:15px; box-shadow:0 8px 20px rgba(0,0,0,0.1); width:320px; text-align:center; }
+input, select { width:100%; padding:12px; margin:10px 0; border-radius:8px; border:1px solid #ccc; }
+input[type="submit"] { background:#6a5acd; color:#fff; border:none; cursor:pointer; font-weight:bold; }
+input[type="submit"]:hover { background:#5848c2; }
+</style>
 </head>
 <body>
-  <form action="login.php" method="post">
-    <h2>Login</h2>
-
-    <label for="email"></label>
-    Email:
-    <input type="email" name="email" placeholder="Enter your email" required> <br><br>
-
-    <label for="password"></label>
-    Password:
-    <input type="password" name="password" placeholder="Enter your password" required> <br><br>
-
-    <select name="role" required>
-      <option value="" disabled selected>Select Role</option>
-      <option value="voter">voter</option>
-      <option value="Admin">Admin</option>
-    </select>
-
-    <p>Don't have an account? <a href="studentRegistration.html">Register here</a></p>
-
-    <input type="submit" value="Login">
-  </form>
+<form action="login.php" method="post">
+<h2>Login</h2>
+<input type="email" name="email" placeholder="Enter your email" required>
+<input type="password" name="password" placeholder="Enter your password" required>
+<select name="role" required>
+<option value="" disabled selected>Select Role</option>
+<option value="voter">voter</option>
+<option value="admin">admin</option>
+</select>
+<p>Don't have an account? <a href="studentRegistration.html">Register here</a></p>
+<input type="submit" value="Login">
+</form>
 </body>
 </html>

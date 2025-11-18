@@ -1,116 +1,140 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>First Page</title>
+  <title>Online Voting System</title>
+
   <style>
-    body {
+    * {
       margin: 0;
       padding: 0;
-      /* Set background image */
-      background: url('C:\xampp\htdocs\project1st\voting_System\voting_image.jpg') no-repeat center center fixed;
-      background-size: cover; /* Make image cover entire screen */
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      color: white; /* Text color visible on image */
-      font-family: Arial, sans-serif;
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
     }
 
-    /* Navbar */
-    nav {
-      background-color: rgba(255, 165, 0, 0.8); /* semi-transparent orange */
-      padding: 12px;
-      position: fixed;
+   body {
+   
+    background-size: 300px 200px; /* smaller size */
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    color: white;
+}
+
+    header {
       width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 40px;
+      background: rgba(11, 92, 183, 0.9);
+      color: white;
+      position: fixed;
       top: 0;
-      left: 0;
       z-index: 1000;
     }
 
-    nav ul {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      gap: 15px;
+    .text {
+      color: rgb(24, 189, 9);
+      font-size: 24px;
+      font-weight: bold;
+      background-color: rgb(254, 254, 250);
+      padding: 10px 20px;
+      border-radius: 200px;
     }
 
-    nav ul li a {
-      color: white;
+    nav {
+      display: flex;
+      gap: 10px;
+    }
+
+    nav a {
+      padding: 10px 30px;
+      background: white;
+      color: black;
       text-decoration: none;
+      border-radius: 8px;
       font-size: 16px;
-      padding: 8px 15px;
-      border-radius: 5px;
+      font-weight: bold;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      min-width: 100px;
       transition: 0.3s;
     }
 
-    nav ul li a:hover {
-      background: skyblue;
-      color: blue;
+    nav a:hover {
+      background: #4f0cc3;
+      color: white;
     }
 
-    /* Main Content */
     .container {
-      flex: 1;
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
-      text-align: center;
-      padding-top: 70px; /* avoid navbar overlap */
-      background-color: rgba(0, 0, 0, 0.4); /* dark overlay for readability */
+      padding: 120px 60px 60px 60px;
+      flex: 1;
+      background-color: rgba(154, 143, 143, 0.3);
     }
 
-    .container div {
-      background-color: rgba(0,0,0,0.5);
-      padding: 20px 30px;
+    .text-section {
+      width: 55%;
+      background-color: rgba(30, 46, 58, 0.6);
+      padding: 40px;
       border-radius: 10px;
     }
 
-    .btn {
-      display: inline-block;
-      margin: 10px;
-      padding: 12px 25px;
-      background: skyblue;
-      color: white;
-      text-decoration: none;
-      border-radius: 8px;
-      transition: 0.3s;
+    .text-section h1 {
+      font-size: 40px;
+      margin-bottom: 20px;
     }
 
-    .btn:hover {
-      background: blue;
+    .text-section p {
+      line-height: 1.7;
+      font-size: 18px;
     }
 
-    h1, h3, p {
-      margin: 10px 0;
+    .image-section img {
+      width: 430px;
+      height: auto;
+      border-radius: 220px;
+      margin-right: 50px;
     }
   </style>
 </head>
+
 <body>
-  <nav>
-    <ul>
-      <li><a href="login.html">Login</a></li>
-      <li><a href="studentRegistration.html">Register</a></li>
-      <li><a href="about.html">About Us</a></li>
-      <li><a href="notice.html">Notice Board</a></li>
-      <li><a href="help.html">Help</a></li>
-    </ul>
-  </nav>
+
+  <header>
+    <div class="text">Online Voting System</div>
+
+    <nav>
+      <a href="login.html">Login</a>
+      <a href="studentRegistration.html">Register</a>
+      <a href="Notice.html">Notice Board</a>
+      <a href="about.html">About Us</a>
+      <a href="help.html">Help</a>
+    </nav>
+  </header>
 
   <div class="container">
-    <div>
-      <h1>Welcome to Online Voting System</h1>
-      <h3>Choose Your Leader</h3>
-      <p>
-        Participate in a secure, fair, and reliable voting system.<br>
-        Secure your future by choosing the best leader,<br>
-        and make your country proud.
-      </p>
+    <div class="text-section">
+      <h1>Choose Your Leader</h1>
+     <p>
+  Our secure online voting system empowers every college student to express their voice with confidence. 
+  By voting digitally, you participate in choosing responsible leaders, strengthening transparency, 
+  and promoting true campus democracy. Your vote shapes the future — choose wisely, participate actively, 
+  and help build a stronger college community.
+</p>
+
+    </div>
+
+    <div class="image-section">
+      <img src="voteImage.png" alt="Voting System">
     </div>
   </div>
+
 </body>
 </html>

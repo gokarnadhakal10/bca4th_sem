@@ -5,112 +5,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student Registration</title>
   <style>
-    /* Page style */
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(to right, #74ebd5, #acb6e5);
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin: 0;
-    }
-
-    /* Form container */
-    form {
-      background-color: #fff;
-      padding: 30px 40px;
-      border-radius: 15px;
-      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-      width: 350px;
-    }
-
-    /* Form heading */
-    h2 {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #333;
-    }
-
-    /* Each label-input block */
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      margin-bottom: 15px;
-    }
-
-    label {
-      font-weight: bold;
-      color: #333;
-      margin-bottom: 5px;
-    }
-
-    input[type="text"],
-    input[type="email"],
-    input[type="number"],
-    input[type="password"] {
-      width: 100%;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      box-sizing: border-box;
-    }
-
-    /* Submit button */
-    input[type="button"] {
-      width: 100%;
-      padding: 10px;
-      background-color: #007bff;
-      border: none;
-      border-radius: 8px;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-
-    input[type="button"]:hover {
-      background-color: #0056b3;
-    }
+    body { font-family: Arial;
+       background: linear-gradient(to right,#74ebd5,#acb6e5);
+        display:flex;
+         justify-content:center; align-items:center;
+         height:100vh; 
+        margin:0; }
+    form { background:#fff; padding:30px 40px; border-radius:15px; box-shadow:0 0 15px rgba(0,0,0,0.2); width:350px; }
+    h2 { text-align:center; margin-bottom:20px; color:#333; }
+    .form-group { display:flex; flex-direction:column; margin-bottom:15px; }
+    label { font-weight:bold; margin-bottom:5px; color:#333; }
+    input { width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; }
+    input[type="submit"] { background:#007bff; color:#fff; border:none; cursor:pointer; font-weight:bold; transition:0.3s; }
+    input[type="submit"]:hover { background:#0056b3; }
   </style>
 </head>
 <body>
-
   <form action="studentRegout.php" method="post">
     <h2>Student Registration</h2>
-
     <div class="form-group">
-      <label for="name">Name</label>
+      <label>Name</label>
       <input type="text" name="name" placeholder="Enter your name" required>
     </div>
-
     <div class="form-group">
-      <label for="email">Email</label>
+      <label>Email</label>
       <input type="email" name="email" placeholder="Enter your email" required>
     </div>
-
     <div class="form-group">
-      <label for="student_id">Student ID</label>
+      <label>Student ID</label>
       <input type="text" name="student_id" placeholder="Enter Student ID" required>
     </div>
-
     <div class="form-group">
-      <label for="number">Mobile Number</label>
-      <input type="number" name="number" placeholder="Enter your number" required>
+      <label>Mobile Number</label>
+      <input type="text" name="mobile" placeholder="Enter your mobile number" required>
     </div>
-
     <div class="form-group">
-      <label for="password">Password</label>
-      <input type="password" name="password" placeholder="Enter your password" required>
+      <label>Password</label>
+      <input type="password" name="password" placeholder="Enter password" required>
     </div>
-
     <div class="form-group">
-      <label for="confirm_password">Confirm Password</label>
-      <input type="password" name="confirm_password" placeholder="Enter confirm password" required>
+      <label>Confirm Password</label>
+      <input type="password" name="confirm_password" placeholder="Confirm password" required>
     </div>
-
-    <input type="submit" value="Submit">
+    <input type="submit" value="Register">
   </form>
-
 </body>
 </html>

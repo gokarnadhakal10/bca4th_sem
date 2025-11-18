@@ -1,108 +1,136 @@
 <?php
 session_start();
-if (!isset($_SESSION['email'])) {
+
+// Redirect if user is not logged in or role is not voter
+if (!isset($_SESSION['email']) || $_SESSION['role'] != 'voter') {
     header("Location: login.html");
     exit;
 }
+
+// Optional: get user info from session
+$name = $_SESSION['name'];
 ?>
-
-
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voting Dashboard</title>
-    
-     <style>
-     body {
-    font-family: Arial, sans-serif;
-    background: linear-gradient(135deg, #4CAF50, #2e8b57);
-    margin: 0;
-    padding: 0;
-    color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-}
+    <title>Voter Dashboard</title>
+    <style>
+        /* Body & font */
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #74ebd5, #acb6e5);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
 
-.container {
-    text-align: center;
-}
+        h1 {
+            margin-top: 40px;
+            margin-bottom: 30px;
+            color: #333;
+            text-align: center;
+        }
 
-h1 {
-    margin-bottom: 30px;
-    font-size: 28px;
-    text-shadow: 1px 1px 2px black;
-}
+        /* Cards container */
+        .cards {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
 
-.card {
-    background: white;
-    color: #333;
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    display: inline-block;
-    width: 250px;
-    margin: 15px;
-    padding: 20px;
-    transition: transform 0.3s ease;
-}
+        /* Individual card */
+        .card {
+            background: white;
+            color: black;
+            padding: 20px;
+            border-radius: 12px;
+            width: 220px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
 
-.card:hover {
-    transform: scale(1.05);
-}
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
 
-.card h2 {
-    margin-bottom: 15px;
-}
+        .card h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
 
-button {
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 10px 20px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s;
-}
+        .card button {
+            padding: 10px 20px;
+            background: #0f8f55;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
 
-button:hover {
-    background-color: #45a049;
-}
-</style>
+        .card button:hover {
+            background: #0d6a42;
+        }
+
+        /* Logout button */
+        .home-btn {
+            margin-top: 30px;
+            padding: 10px 20px;
+            background: #ff4d4d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .home-btn:hover {
+            background: #cc0000;
+        }
+
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome to School Election Voting System</h1>
 
+    <h1>Welcome, <?php echo htmlspecialchars($name); ?>!</h1>
+
+    <div class="cards">
         <div class="card">
-            <h2>School President</h2>
-            <form action="candidates.php" method="GET">
-                <input type="hidden" name="position" value="president">
-                <button type="submit">View Candidates</button>
+            <h3>President</h3>
+            <form action="voter_president_vote.php" method="post">
+                <button type="submit">Vote</button>
             </form>
         </div>
 
         <div class="card">
-            <h2>School Vice President</h2>
-            <form action="candidates.php" method="GET">
-                <input type="hidden" name="position" value="vice_president">
-                <button type="submit">View Candidates</button>
+            <h3>Vice President</h3>
+            <form action="voter_vice_vote.php" method="post">
+                <button type="submit">Vote</button>
             </form>
         </div>
 
         <div class="card">
-            <h2>Class CR</h2>
-            <form action="candidates.php" method="GET">
-                <input type="hidden" name="position" value="class_cr">
-                <button type="submit">View Candidates</button>
+            <h3>Class CR</h3>
+            <form action="voter_cr_vote.php" method="post">
+                <button type="submit">Vote</button>
             </form>
         </div>
     </div>
+
+    <!-- Logout -->
+    <form action="firstpage.html" method="post">
+        <button class="home-btn" type="submit">home</button>
+    </form>
+
 </body>
 </html>
-
-
