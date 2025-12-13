@@ -46,7 +46,7 @@ gfd
       border-radius: 200px;
     }
 
-    nav {
+    /* nav {
       display: flex;
       gap: 10px;
     }
@@ -68,7 +68,29 @@ gfd
     nav a:hover {
       background: #4f0cc3;
       color: white;
-    }
+    } */
+     nav {
+    width: 100%;
+    background: rgba(11,92,183,0.9);
+    padding: 15px 0;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    position: fixed;
+    top: 0;
+    z-index: 1000;
+}
+nav a {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    padding: 10px 15px;
+    border-radius: 5px;
+}
+nav a:hover {
+    background: #4f0cc3;
+    color: white;
+}
 
     .container {
       display: flex;
@@ -111,6 +133,7 @@ gfd
     <div class="text">Online Voting System</div>
 
     <nav>
+      <a href="firstpage.html">Home</a>
       <a href="login.html">Login</a>
       <a href="studentRegistration.html">Register</a>
       <a href="Notice.html">Notice Board</a>

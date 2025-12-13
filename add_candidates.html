@@ -1,0 +1,64 @@
+<html>
+   <head>
+
+    <title>ADD CANDIDATES</title>
+    <style>
+body {
+    font-family: Arial, sans-serif;
+    background: #eef2f7;
+    padding: 30px;
+}
+
+h2 {
+    color: #333;
+}
+
+form {
+    background: #ffffff;
+    padding: 20px;
+    width: 350px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+input[type="text"],
+input[type="file"],
+button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+button {
+    background: #2196F3;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+button:hover {
+    background: #0b7dda;
+}
+</style>
+
+   </head>
+   <body>
+<h2>Add New candidates </h2>
+<form  action ="  " method ="POST" required>
+ Name:<input types="text" name="name" required><br><br>
+Party:<input types="text"name="party" required><br><br>
+Position:<input types="text"name="position" required><br><br>
+photo: <input type="file" name="image" required>
+
+    <button type="submit">Add Candidate</button>
+
+</form>
+
+
+
+   </body>
+</html>

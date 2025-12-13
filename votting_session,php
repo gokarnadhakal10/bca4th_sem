@@ -1,0 +1,25 @@
+<?php
+require 'confirm.php';
+admin_required();
+
+
+$action = $_POST['action'] ?? '';
+$start = $_POST['start'] ? $mysqli->real_escape_string($_POST['start']) : null;
+$end = $_POST['end'] ? $mysqli->real_escape_string($_POST['end']) : null;
+
+
+if ($action === 'start'){
+$stmt = $mysqli->prepare("UPDATE voting_session SET start_time=?, end_time=?, status='active' WHERE id=1");
+$stmt->bind_param('ss', $start, $end);
+$stmt->execute();
+}
+
+
+if ($action === 'end'){
+$stmt = $mysqli->prepare("UPDATE voting_session SET status='ended' WHERE id=1");
+$stmt->execute();
+}
+
+
+header('Location: admin_dashboard.php');
+exit;

@@ -5,25 +5,162 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login</title>
 <style>
-body { font-family:Arial; display:flex; justify-content:center; align-items:center; height:100vh; background:linear-gradient(135deg,#74ebd5,#9face6); }
-form { background:#fff; padding:40px; border-radius:15px; box-shadow:0 8px 20px rgba(0,0,0,0.1); width:320px; text-align:center; }
-input, select { width:100%; padding:12px; margin:10px 0; border-radius:8px; border:1px solid #ccc; }
-input[type="submit"] { background:#6a5acd; color:#fff; border:none; cursor:pointer; font-weight:bold; }
-input[type="submit"]:hover { background:#5848c2; }
+body { 
+    font-family: Arial; 
+    display: flex; 
+    flex-direction: column;
+    align-items: center; 
+    background: linear-gradient(135deg,#74ebd5,#9face6); 
+    margin:0;
+    padding:0;
+}
+nav {
+    width: 100%;
+    background: rgba(11,92,183,0.9);
+    padding: 15px 0;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    position: fixed;
+    top: 0;
+    z-index: 1000;
+}
+nav a {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    padding: 10px 15px;
+    border-radius: 5px;
+}
+nav a:hover {
+    background: #4f0cc3;
+    color: white;
+}
+form { 
+    background: #fff; 
+    padding: 40px; 
+    border-radius: 15px; 
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    width: 320px; 
+    text-align: center; 
+    margin-top: 120px; /* to avoid navbar overlap */
+}
+input, select { 
+    width: 100%; 
+    padding: 12px; 
+    margin: 10px 0; 
+    border-radius: 8px;
+    border: 1px solid #ccc; 
+}
+.password-container { position: relative; }
+.eye-btn {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 18px;
+}
+input[type="submit"] { 
+    background: #6a5acd; 
+    color: #fff;
+    border: none; 
+    cursor: pointer; 
+    font-weight: bold; 
+}
+input[type="submit"]:hover { background: #5848c2; }
+.error { color: red; font-size: 14px; margin-bottom: 10px; text-align: left;}
 </style>
 </head>
 <body>
-<form action="login.php" method="post">
+
+<!-- Navbar -->
+<nav>
+  <a href="firstpage.html">Home</a>
+  <a href="login.htm">Login</a>
+  <a href="studentRegistration.html">Register</a>
+  <a href="Notice.html">Notice Board</a>
+  <a href="about.html">About Us</a>
+  <a href="help.html">Help</a>
+   <a href="logout.php">logout</a>
+</nav>
+
+<!-- Login Form -->
+<form action="login.php" method="post" onsubmit="return validateLoginForm()">
 <h2>Login</h2>
-<input type="email" name="email" placeholder="Enter your email" required>
-<input type="password" name="password" placeholder="Enter your password" required>
-<select name="role" required>
-<option value="" disabled selected>Select Role</option>
-<option value="voter">voter</option>
-<option value="admin">admin</option>
+
+<p class="error" id="serverError"></p>
+
+<input type="email" name="email" id="email" placeholder="Enter your email" required>
+<span class="error" id="emailError"></span>
+
+<div class="password-container">
+<input type="password" name="password" id="password" placeholder="Enter your password" required>
+<span class="eye-btn" onclick="togglePassword()">👁</span>
+</div>
+<span class="error" id="passwordError"></span>
+
+<select name="role" id="role" required>
+    <option value="" disabled selected>Select Role</option>
+    <option value="Voter">Voter</option>
+    <option value="Admin">Admin</option>
 </select>
+<span class="error" id="roleError"></span>
+
 <p>Don't have an account? <a href="studentRegistration.html">Register here</a></p>
 <input type="submit" value="Login">
+<P> forget password<a href="forgotpassword.php">click here </a></P>
 </form>
+
+<script>
+function togglePassword() {
+    let passwordField = document.getElementById("password");
+    passwordField.type = passwordField.type === "password" ? "text" : "password";
+}
+
+function validateLoginForm() {
+    let email = document.getElementById("email").value.trim();
+    let password = document.getElementById("password").value.trim();
+    let role = document.getElementById("role").value;
+
+    document.getElementById("emailError").innerText = "";
+    document.getElementById("passwordError").innerText = "";
+    document.getElementById("roleError").innerText = "";
+    document.getElementById("serverError").innerText = "";
+
+    let isValid = true;
+
+    let emailPattern = /^[^ ]+@[^ ]+\.[a-z]{2,3}$/;
+    if(!email.match(emailPattern)){
+        document.getElementById("emailError").innerText = "Invalid email address";
+        isValid = false;
+    }
+
+    if(password === ""){
+        document.getElementById("passwordError").innerText = "Password required";
+        isValid = false;
+    }
+
+    if(role === ""){
+        document.getElementById("roleError").innerText = "Please select a role";
+        isValid = false;
+    }
+
+    return isValid;
+}
+
+// Show server errors passed via query string
+window.onload = function(){
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    if(error){
+        const serverError = document.getElementById("serverError");
+        if(error === "fill_fields") serverError.innerText = "Please fill in all fields!";
+        if(error === "incorrect_password") serverError.innerText = "Incorrect password!";
+        if(error === "invalid_email") serverError.innerText = "Email not found or wrong role!";
+    }
+}
+</script>
+
 </body>
 </html>
