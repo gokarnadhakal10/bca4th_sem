@@ -14,6 +14,7 @@ $candidates = $mysqli->query("SELECT * FROM candidates ORDER BY id DESC");
 <td><?=h($r['Name'])?></td>
 <td><?=h($r['Party'])?></td>
 <td><?=h($r['Position'])?></td>
+<td><?=h($r['votes'])?></td>
 <td><?php if($r['Photo']) echo "<img src='uploads/".h($r['photo'])."' width='60'>"; ?></td>
 </tr>
 <?php endwhile; ?>

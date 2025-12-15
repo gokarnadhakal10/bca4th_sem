@@ -1,6 +1,5 @@
 <?php
 session_start();
-
 // Database connection
 $conn = new mysqli("localhost", "root", "", "voting_system");
 if ($conn->connect_error) {
