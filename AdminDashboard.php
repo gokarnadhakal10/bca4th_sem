@@ -64,16 +64,47 @@ button{
 }
 
 /* Table */
+
 .table-container{
     overflow-x:auto; /* scroll only if needed */
 }
 table{
     width:100%;
+     max-width: 100%;
+   
     border-collapse:collapse;
     background:white;
     table-layout: fixed;
     word-wrap: break-word;
 }
+
+
+
+
+
+
+/* Make table fit container */
+.table-container table {
+    width: 100%;
+    border-collapse: collapse; /* Optional, nicer look */
+}
+
+/* Table styling */
+.table-container th, 
+.table-container td {
+    padding: 10px;
+    text-align: left;
+    border: 1px solid #ddd;
+}
+
+/* Optional: striped rows */
+.table-container tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+
+
+
 th, td{
     padding:10px;
     border-bottom:1px solid #ddd;
@@ -83,6 +114,43 @@ img{
     width:50px;
     height:auto;
 }
+
+
+
+
+
+/* Common button style */
+.btn {
+    padding: 6px 14px;
+    margin: 2px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+/* Edit button */
+.btn-edit {
+    background-color: #4CAF50; /* Green */
+}
+
+.btn-edit:hover {
+    background-color: #45a049;
+}
+
+/* Delete button */
+.btn-delete {
+    background-color: #f44336; /* Red */
+}
+
+.btn-delete:hover {
+    background-color: #da190b;
+}
+
+
 </style>
 </head>
 <body>
@@ -149,10 +217,21 @@ End Time: <input type="datetime-local" name="end" value="<?= $session['end_time'
     <td><?= $c['faculty'] ?></td>
     <td><img src="uploads/<?= $c['photo'] ?>" alt="photo"></td>
     <td><?= $c['votes'] ?></td>
-    <td>
-        <a href="edit_candidates.php?id=<?= $c['id'] ?>">Edit</a> |
-        <a href="delete_candidates.php?id=<?= $c['id'] ?>" onclick="return confirm('Delete?')">Delete</a>
-    </td>
+    
+
+<td>
+  <form action="edit_candidates.php" method="get" style="display:inline-block;">
+    <input type="hidden" name="id" value="<?= $c['id'] ?>">
+    <button type="submit" class="btn btn-edit">Edit</button>
+  </form>
+
+  <form action="delete_candidates.php" method="get" style="display:inline-block;" onsubmit="return confirm('Are you sure you want to delete this candidate?');">
+    <input type="hidden" name="id" value="<?= $c['id'] ?>">
+    <button type="submit" class="btn btn-delete">Delete</button>
+  </form>
+</td>
+
+
 </tr>
 <?php endwhile; ?>
 
