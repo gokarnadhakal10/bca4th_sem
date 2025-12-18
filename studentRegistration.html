@@ -134,18 +134,34 @@ font-size:14px; }
     <span class="error" id="mobileError"></span>
   </div>
 
-  <!-- <div class="form-group">
+  <div class="form-group">
+  <label>Faculty</label>
+  <select name="faculty" id="faculty">
+    <option value="">-- Select Faculty --</option>
+    <option value="BCA">BCA</option>
+    <option value="BBS">BBS</option>
+    <option value="B.ED">B.ED</option>
+  </select>
+  <span class="error" id="facultyError"></span>
+</div>
+
+ <div class="form-group">
+  <label>Class</label>
+  <input type="text" name="class" id="class">
+  <span class="error" id="classError"></span>
+</div>
+
+<!-- <div class="form-group">
     <label>Role</label>
     <select name="role" id="role">
         <option value="Voter">Voter</option>
-        <option value="Admin">Admin</option>
     </select>
-  </div> -->
+</div> -->
+
 <div class="form-group">
-    <label>Role</label>
-    <select name="role" id="role">
-        <option value="Voter">Voter</option>
-    </select>
+  <label>Role</label>
+  <input type="text" value="Voter" readonly>
+  <input type="hidden" name="role" value="Voter">
 </div>
 
   <div class="form-group">
@@ -199,6 +215,27 @@ function validateForm() {
     let mobilePattern = /^[0-9]{10}$/;
     if(!mobile.match(mobilePattern)) { document.getElementById("mobileError").innerText="Mobile must be 10 digits"; isValid=false; }
 
+
+function validateForm() {
+  let faculty = document.getElementById("faculty").value;
+
+  if (faculty === "") {
+    document.getElementById("facultyError").innerText = "Please select a faculty";
+    return false; // stop form submission
+  } else {
+    document.getElementById("facultyError").innerText = "";
+  }
+
+  return true;
+}
+
+
+let cls = document.getElementById("class").value;
+
+if (cls === "") {
+  document.getElementById("classError").innerText = "Class is required";
+}
+
     if(password.length<8) { document.getElementById("passwordError").innerText="Password min 8 chars"; isValid=false; }
     else if(!/[A-Z]/.test(password)) { document.getElementById("passwordError").innerText="Must contain uppercase"; isValid=false; }
     else if(!/[a-z]/.test(password)) { document.getElementById("passwordError").innerText="Must contain lowercase"; isValid=false; }
@@ -208,6 +245,7 @@ function validateForm() {
     if(password!==cpassword) { document.getElementById("cpasswordError").innerText="Passwords do not match"; isValid=false; }
 
     return isValid;
+
 }
 </script>
 

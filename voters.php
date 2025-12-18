@@ -20,10 +20,29 @@ a {
     text-decoration: none;
     padding: 5px 10px;
 }
+.back-btn{
+    display: inline-block;
+    padding: 10px 18px;
+    background-color: #0d6efd;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.3s ease;
+}
+
+.back-btn:hover{
+    background-color: #084298;
+}
+
 </style>
 </head>
 <body>
-
+<!-- BACK BUTTON -->
+<a href="AdminDashboard.php" class="back-btn">
+    <button>⬅ Back </button>
+</a>
 <h2>Voter Management</h2>
 <table>
 <tr>
@@ -32,6 +51,8 @@ a {
     <th>Email</th>
     <th>mobile</th>
     <th>role</th>
+    <th>faculty</th>
+    <th>class</th>
     <th>password</th>
 </tr>
 <?php while ($row = $result->fetch_assoc()){
@@ -42,6 +63,8 @@ a {
     <td><?php echo $row['email']; ?></td>
     <td><?php echo $row['mobile']; ?></td>
     <td><?php echo $row['role']; ?></td>
+    <td><?php echo $row['faculty']; ?></td>
+    <td><?php echo $row['class']; ?></td>
     <td><?php echo $row['password']; ?></td>
     
     <td>

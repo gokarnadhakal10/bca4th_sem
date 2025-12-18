@@ -91,7 +91,7 @@ img{
 <div class="sidebar">
     <h2 style="text-align:center;">Admin Panel</h2>
     <a href="AdminDashboard.php">Dashboard</a>
-    <a href="voters.php">Voters</a>
+    <a href="voters.php">Voters management</a>
     <a href="candidates.php">Candidates</a>
     <a href="result.php">Results</a>
     <a href="logout.php">Logout</a>
@@ -119,9 +119,9 @@ End Time: <input type="datetime-local" name="end" value="<?= $session['end_time'
 
 <h3>Quick Actions</h3>
 <a href="add_candidates.php"><button>Add New Candidate</button></a>
-<a href="add_voter.php"><button>Add New Voter</button></a>
+<a href="studentRegistration.html"><button>Add New Voter</button></a>
 <a href="result.php"><button>Publish Result</button></a>
-
+<a href="image1.php"><button>Hero page </button></a>
 <hr>
 
 <h3>All Candidates</h3>
@@ -132,9 +132,11 @@ End Time: <input type="datetime-local" name="end" value="<?= $session['end_time'
     <th>Name</th>
     <th>Party</th>
     <th>Position</th>
+    <th>Class</th>
+    <th>Faculty</th>
     <th>Photo</th>
-    <th>Votes</th>
-    <th>Actions</th>
+     <th>Votes</th>
+      <th>Action</th>
 </tr>
 
 <?php while($c = $candidates->fetch_assoc()): ?>
@@ -143,6 +145,8 @@ End Time: <input type="datetime-local" name="end" value="<?= $session['end_time'
     <td><?= $c['name'] ?></td>
     <td><?= $c['party'] ?></td>
     <td><?= $c['position'] ?></td>
+    <td><?= $c['class'] ?></td>
+    <td><?= $c['faculty'] ?></td>
     <td><img src="uploads/<?= $c['photo'] ?>" alt="photo"></td>
     <td><?= $c['votes'] ?></td>
     <td>
