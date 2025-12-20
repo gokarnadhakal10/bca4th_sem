@@ -181,7 +181,7 @@ img{
 
 <!-- Main Content -->
 <div class="main">
-
+<!-- 
 <h3>Voting Control</h3>
 <form action="voting_session.php" method="POST">
 Start Time: <input type="datetime-local" name="start" value="<?= $session['start_time'] ?>"><br><br>
@@ -189,7 +189,50 @@ End Time: <input type="datetime-local" name="end" value="<?= $session['end_time'
 
 <button type="submit" name="action" value="start">Start Voting</button>
 <button type="submit" name="action" value="end">End Voting</button>
+<button type="submit" name="action" value="pause">Pause Voting</button>
+<button type="submit" name="action" value="resume">Resume Voting</button> -->
+
+<h3>Voting Control</h3>
+
+<form action="voting_session.php" method="POST">
+
+    <label>Start Time:</label>
+    <input type="datetime-local" name="start" required
+           value="<?= $session['start_time'] ?>"><br><br>
+
+    <label>End Time:</label>
+    <input type="datetime-local" name="end" required
+           value="<?= $session['end_time'] ?>"><br><br>
+
+    <button type="submit" name="action" value="start">
+        Start Voting
+    </button>
+
+    <button type="submit" name="action" value="pause"
+            style="background:orange">
+        Pause Voting
+    </button>
+
+    <button type="submit" name="action" value="resume"
+            style="background:green">
+        Resume Voting
+    </button>
+
+    <button type="submit" name="action" value="end"
+            style="background:red">
+        End Voting
+    </button>
+
+
+
+    
 </form>
+
+
+
+
+
+
 
 <hr>
 

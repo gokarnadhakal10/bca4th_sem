@@ -10,6 +10,28 @@ if (!isset($_SESSION['voter_id'])) {
 
 $voter_id = $_SESSION['voter_id'];
 
+
+
+// ✅ CHECK VOTING SESSION STATUS
+$session = $conn->query("SELECT * FROM voting_session WHERE id=0")->fetch_assoc();
+
+$now = date('Y-m-d H:i:s');
+
+if ($session['status'] !== 'active') {
+    echo "<h3 style='color:red;text-align:center'>{$session['message']}</h3>";
+    exit;
+}
+
+if ($now < $session['start_time'] || $now > $session['end_time']) {
+    echo "<h3 style='color:red;text-align:center'>Voting is not available at this time</h3>";
+    exit;
+}
+
+
+
+
+
+
 // Fetch user info
 $voter_sql = "SELECT name, faculty, class, status FROM users WHERE id=?";
 $stmt = $conn->prepare($voter_sql);
