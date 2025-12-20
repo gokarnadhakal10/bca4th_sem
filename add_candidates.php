@@ -1,7 +1,7 @@
-
 <?php
 session_start();
-
+require "config.php"; // Database connection
+require "auth.php";
 // Database connection
 $conn = new mysqli("localhost", "root", "", "voting_system");
 if ($conn->connect_error) {

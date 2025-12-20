@@ -1,16 +1,13 @@
 <?php
-session_start();
+$host = "localhost";
+$user = "root";
+$pass = "";         
+$dbname = "voting_system";  
 
-$mysqli = new mysqli("localhost", "root", "", "voting_system");
+$conn = new mysqli($host, $user, $pass, $dbname);
 
-if ($mysqli->connect_error) {
-    die("DB connection failed: " . $mysqli->connect_error);
-}
-
-function admin_required() {
-    if (!isset($_SESSION['admin_id'])) {
-        header("Location: login.php");
-        exit;
-    }
+// Check connection
+if ($conn->connect_error) {
+    die("Database Connection Failed: " . $conn->connect_error);
 }
 ?>

@@ -1,6 +1,8 @@
 <?php
 require 'confirm.php';
+require "auth.php";
 admin_required();
+
 
 
 $action = $_POST['action'] ?? '';

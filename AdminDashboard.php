@@ -1,11 +1,19 @@
 <?php
 require "config.php"; // Database connection
+ require "auth.php";
+
+admin_required();
+// Fetch candidates
+   
 
 // Fetch candidates
-$candidates = $mysqli->query("SELECT * FROM candidates");
+$candidates = $conn->query("SELECT * FROM candidates");
 
 // Fetch voting session
-$session = $mysqli->query("SELECT * FROM voting_session WHERE id=1")->fetch_assoc();
+$session = $conn->query("SELECT * FROM voting_session WHERE id=1")->fetch_assoc();
+
+
+
 ?>
 <!DOCTYPE html>
 <html>
@@ -189,7 +197,8 @@ End Time: <input type="datetime-local" name="end" value="<?= $session['end_time'
 <a href="add_candidates.php"><button>Add New Candidate</button></a>
 <a href="studentRegistration.html"><button>Add New Voter</button></a>
 <a href="result.php"><button>Publish Result</button></a>
-<a href="image1.php"><button>Hero page </button></a>
+<a href="hero_upload.php"><button>Hero page</button></a>
+
 <hr>
 
 <h3>All Candidates</h3>
@@ -216,7 +225,20 @@ End Time: <input type="datetime-local" name="end" value="<?= $session['end_time'
     <td><?= $c['class'] ?></td>
     <td><?= $c['faculty'] ?></td>
     <td><img src="uploads/<?= $c['photo'] ?>" alt="photo"></td>
-    <td><?= $c['votes'] ?></td>
+   
+
+
+    <?php
+// Fetch number of votes for this candidate
+$vote_count_sql = "SELECT COUNT(*) as total_votes FROM votes WHERE candidate_id=?";
+$stmt_votes = $conn->prepare($vote_count_sql);
+$stmt_votes->bind_param("i", $c['id']);
+$stmt_votes->execute();
+$vote_result = $stmt_votes->get_result();
+$vote_data = $vote_result->fetch_assoc();
+?>
+<td><?= $vote_data['total_votes'] ?></td>
+
     
 
 <td>

@@ -1,0 +1,5 @@
+<form action="vote.php" method="post">
+    <input type="hidden" name="voter_id" value="<?= $voter_id ?>">
+    <input type="hidden" name="candidate_id" value="<?= $c['id'] ?>">
+    <button type="submit" class="btn btn-vote" onclick="return confirm('Confirm your vote?')">Vote</button>
+</form>

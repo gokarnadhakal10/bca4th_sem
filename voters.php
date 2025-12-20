@@ -1,6 +1,10 @@
 <?php
-require "connection_database.php";
-$result= $mysqli-> query("SELECT * FROM users");
+
+require 'config.php';
+
+ require "auth.php";
+admin_required();
+$result= $conn-> query("SELECT * FROM users");
 ?>
 <!DOCTYPE html>
 <html>

@@ -1,5 +1,6 @@
 <?php
 require 'config.php';
+ require "auth.php";
 admin_required();
 $id = intval($_GET['id'] ?? 0);
 $stmt = $mysqli->prepare("SELECT * FROM candidates WHERE id=?");

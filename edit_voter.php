@@ -1,6 +1,7 @@
 <?php
-require "connection_database.php";
-
+require 'config.php';
+ require "auth.php";
+admin_required();
 $id = $_GET['id'];
 
 // Fetch voter data
