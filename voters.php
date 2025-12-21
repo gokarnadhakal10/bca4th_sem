@@ -57,10 +57,15 @@ a {
     <th>role</th>
     <th>faculty</th>
     <th>class</th>
+    <th>photo</th>
     <th>password</th>
+     <th>Action</th>
 </tr>
 <?php while ($row = $result->fetch_assoc()){
 ?>
+
+
+
 <tr>
     <td><?php echo $row['id']; ?></td>
     <td><?php echo $row['name']; ?></td>
@@ -69,16 +74,32 @@ a {
     <td><?php echo $row['role']; ?></td>
     <td><?php echo $row['faculty']; ?></td>
     <td><?php echo $row['class']; ?></td>
-    <td><?php echo $row['password']; ?></td>
-    
+
+   
+    <td>********</td>
+
     <td>
- <a href="edit_voter.php?id=<?php echo $row['id']; ?>">Edit</a>
+        <?php if (!empty($row['photo'])) { ?>
+            <img src="<?php echo $row['photo']; ?>" width="80" height="80" style="object-fit:cover; border-radius:5px;">
+        <?php } else { ?>
+            No Photo
+        <?php } ?>
+    </td>
+
+    <!-- ACTION COLUMN -->
+    <td>
+        <a href="edit_voter.php?id=<?php echo $row['id']; ?>">Edit</a>
         |
-        <a href="block_voter.php?id=<?php echo $row['id']; ?>">
-            <?php echo ($row['status']=='active') ? 'Block' : 'Unblock'; ?>
+        <a href="block_voter.php?id=<?php echo $row['id']; ?>"
+           onclick="return confirm('Are you sure?')">
+            <?php echo ($row['status'] == 'active') ? 'Block' : 'Unblock'; ?>
         </a>
     </td>
 </tr>
+
+
+
+
 <?php } ?>
 
 </table>

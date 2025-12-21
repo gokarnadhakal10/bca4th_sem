@@ -145,7 +145,7 @@ $hero_image = $hero ? 'uploads/'.$hero['image'] : 'voteImage.png';
       <a href="firstpage.php">Home</a>
       <a href="login.html">Login</a>
       <a href="studentRegistration.html">Register</a>
-      <a href="Notice.html">Notice Board</a>
+       <a href="result.php">Result</a>
       <a href="about.html">About Us</a>
       <a href="help.html">Help</a>
     </nav>

@@ -2,8 +2,11 @@
 
 
 
+
+
+
 <?php
-require 'confirm.php';
+require 'config.php';
 require 'auth.php';
 
 admin_required();
@@ -15,7 +18,7 @@ $end    = $_POST['end'] ?? null;
 switch ($action) {
 
     case 'start':
-        $stmt = $mysqli->prepare(
+        $stmt = $conn->prepare(
             "UPDATE voting_session 
              SET start_time=?, end_time=?, status='active',
                  message='Voting has started'
@@ -26,7 +29,7 @@ switch ($action) {
         break;
 
     case 'pause':
-        $mysqli->query(
+        $conn->query(
             "UPDATE voting_session 
              SET status='inactive',
                  message='Voting paused temporarily'
@@ -35,7 +38,7 @@ switch ($action) {
         break;
 
     case 'resume':
-        $mysqli->query(
+        $conn->query(
             "UPDATE voting_session 
              SET status='active',
                  message='Voting resumed'
@@ -44,7 +47,7 @@ switch ($action) {
         break;
 
     case 'end':
-        $mysqli->query(
+        $conn->query(
             "UPDATE voting_session 
              SET status='ended',
                  message='Voting has ended'
@@ -55,4 +58,3 @@ switch ($action) {
 
 header('Location: AdminDashboard.php');
 exit;
-

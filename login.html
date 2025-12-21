@@ -14,6 +14,28 @@ body {
     height: 100vh;
     margin: 0;
 }
+ nav {
+    width: 100%;
+    background: rgba(11,92,183,0.9);
+    padding: 15px 0;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    position: fixed;
+    top: 0;
+    z-index: 1000;
+}
+nav a {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    padding: 10px 15px;
+    border-radius: 5px;
+}
+nav a:hover {
+    background: #4f0cc3;
+    color: white;
+}
 form {
     background: white;
     padding: 30px;
@@ -50,6 +72,18 @@ input[type="submit"] {
 </head>
 
 <body>
+ <nav>
+  <a href="firstpage.php">Home</a>
+ 
+   <a href="login.html">Login</a>
+  <a href="studentRegistration.html">Register</a>
+  <a href="result.php">Result</a>
+  <a href="about.html">About Us</a>
+  <a href="help.html">Help</a>
+   <a href="logout.php">logout</a>
+</nav>
+
+
 
 <form action="login.php" method="POST" onsubmit="return validateForm()">
 <h2>Login</h2>
@@ -73,6 +107,7 @@ input[type="submit"] {
 <span class="error" id="roleError"></span>
 
 <input type="submit" name="login" value="Login">
+<p> Donot have an account? <a href="studentRegistration.html">Register from  here</a></p>
 </form>
 
 <script>

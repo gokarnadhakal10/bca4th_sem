@@ -33,7 +33,7 @@ if ($now < $session['start_time'] || $now > $session['end_time']) {
 
 
 // Fetch user info
-$voter_sql = "SELECT name, faculty, class, status FROM users WHERE id=?";
+$voter_sql = "SELECT name, faculty,photo, class, status FROM users WHERE id=?";
 $stmt = $conn->prepare($voter_sql);
 $stmt->bind_param("i", $voter_id);
 $stmt->execute();
@@ -145,17 +145,23 @@ tr:hover {
 
 <div class="container">
 
-    <!-- Voter Info -->
+  <!-- voter info -->
+
     <div class="voter-info">
-        <p><strong>Name:</strong> <?= $voter['name'] ?></p>
-        <p><strong>Faculty:</strong> <?= $voter['faculty'] ?></p>
-        <p><strong>Class:</strong> <?= $voter['class'] ?></p>
-        <p><strong>Status:</strong> 
-            <span class="<?= $voter['status']=='Blocked'?'status-blocked':'status-active' ?>">
-                <?= $voter['status'] ?>
-            </span>
-        </p>
-    </div>
+    <p><strong>Name:</strong> <?= $voter['name'] ?></p>
+    <p><strong>Faculty:</strong> <?= $voter['faculty'] ?></p>
+    <p><strong>Class:</strong> <?= $voter['class'] ?></p>
+    
+    <p><strong>Photo:</strong></p>
+    <img src="<?= $voter['photo'] ?>" alt="Voter Photo" class="candidate-photo">
+    
+    <p><strong>Status:</strong> 
+        <span class="<?= $voter['status']=='Blocked'?'status-blocked':'status-active' ?>">
+            <?= $voter['status'] ?>
+        </span>
+    </p>
+</div>
+
 
     <!-- Candidates Table -->
     <table>

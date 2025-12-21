@@ -1,24 +1,29 @@
 <?php
 require 'config.php';
- require "auth.php";
+require 'auth.php';
+
 admin_required();
+
 $id = $_GET['id'];
 
 // Fetch voter data
-$voter = $mysqli->query("SELECT * FROM users WHERE id=$id")->fetch_assoc();
+$result = $conn->query("SELECT * FROM users WHERE id=$id");
+$voter = $result->fetch_assoc();
 
 if (isset($_POST['update'])) {
-    $name  = $_POST['name'];
-    $email = $_POST['email'];
+    $name   = $_POST['name'];
+    $email  = $_POST['email'];
     $mobile = $_POST['mobile'];
 
-    $mysqli->query("UPDATE voters SET 
-        name='$name', 
-        email='$email', 
-        mobile='$mobile' 
-        WHERE id=$id");
+    $conn->query("UPDATE users SET 
+        name='$name',
+        email='$email',
+        mobile='$mobile'
+        WHERE id=$id
+    ");
 
     header("Location: voters.php");
+    exit;
 }
 ?>
 
@@ -26,23 +31,89 @@ if (isset($_POST['update'])) {
 <html>
 <head>
 <title>Edit Voter</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f9;
+}
+
+.container {
+    width: 400px;
+    margin: 80px auto;
+    background: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+label {
+    font-weight: bold;
+}
+
+input[type="text"],
+input[type="email"] {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.update-btn {
+    background: #28a745;
+    color: #fff;
+}
+
+.back-btn {
+    background: #6c757d;
+    color: #fff;
+    text-decoration: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-left: 10px;
+}
+
+.buttons {
+    text-align: center;
+}
+</style>
+
 </head>
 <body>
 
-<h2>Edit Voter</h2>
+<div class="container">
+    <h2>Edit Section</h2>
 
-<form method="post">
-    Name: <br>
-    <input type="text" name="name" value="<?php echo $voter['name']; ?>"><br><br>
+    <form method="post">
+        <label>Name</label>
+        <input type="text" name="name" value="<?php echo $voter['name']; ?>" required>
 
-    Email: <br>
-    <input type="email" name="email" value="<?php echo $voter['email']; ?>"><br><br>
+        <label>Email</label>
+        <input type="email" name="email" value="<?php echo $voter['email']; ?>" required>
 
-    moblile: <br>
-    <input type="text" name="phone" value="<?php echo $voter['phone']; ?>"><br><br>
+        <label>Mobile</label>
+        <input type="text" name="mobile" value="<?php echo $voter['mobile']; ?>" required>
 
-    <button type="submit" name="update">Update</button>
-</form>
+        <div class="buttons">
+            <button type="submit" name="update" class="update-btn">Update</button>
+            <a href="adminDashboard.php" class="back-btn">Back</a>
+        </div>
+    </form>
+</div>
 
 </body>
 </html>
