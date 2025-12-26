@@ -24,7 +24,7 @@ if(isset($_FILES['hero_image'])){
         $stmt->execute();
         $stmt->close();
 
-        header("Location: admin_dashboard.php");
+        header("Location: AdminDashboard.php");
         exit;
     } else {
         echo "Failed to upload image.";

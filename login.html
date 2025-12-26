@@ -2,155 +2,140 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Login</title>
-
+<title>Login -Voting System</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-body {
-    font-family: Arial;
-    background: linear-gradient(135deg,#74ebd5,#9face6);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-}
- nav {
-    width: 100%;
-    background: rgba(11,92,183,0.9);
-    padding: 15px 0;
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    position: fixed;
-    top: 0;
-    z-index: 1000;
-}
-nav a {
-    color: white;
-    text-decoration: none;
-    font-weight: bold;
-    padding: 10px 15px;
-    border-radius: 5px;
-}
-nav a:hover {
-    background: #4f0cc3;
-    color: white;
-}
-form {
-    background: white;
-    padding: 30px;
-    border-radius: 10px;
-    width: 320px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-}
-input, select {
-    width: 100%;
-    padding: 10px;
-    margin-top: 8px;
-}
-input[type="submit"] {
-    background: #6a5acd;
-    color: white;
-    border: none;
-    margin-top: 15px;
-    cursor: pointer;
-}
-.error {
-    color: red;
-    font-size: 14px;
-}
-.password-container {
-    position: relative;
-}
-.eye-btn {
-    position: absolute;
-    right: 10px;
-    top: 35%;
-    cursor: pointer;
-}
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: #333; }
+    
+    /* Header Styles */
+    header { width: 100%; background: rgba(255, 255, 255, 0.98); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: fixed; top: 0; z-index: 1000; }
+    .header-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 15px 40px; }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { width: 50px; height: 50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; }
+    .logo-text { font-size: 24px; font-weight: bold; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    nav { display: flex; gap: 15px; align-items: center; }
+    nav a { padding: 10px 20px; color: #333; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; transition: all 0.3s ease; }
+    nav a:hover { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; transform: translateY(-2px); }
+    nav a.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+
+    /* Login Form Styles */
+    .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 100px 20px 40px; }
+    .login-card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 100%; max-width: 450px; }
+    .login-header { text-align: center; margin-bottom: 30px; }
+    .login-header h2 { color: #333; font-size: 28px; margin-bottom: 10px; }
+    .login-header p { color: #666; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 8px; color: #333; font-weight: 600; }
+    .form-control { width: 100%; padding: 12px; border: 2px solid #e1e1e1; border-radius: 8px; font-size: 16px; transition: all 0.3s; }
+    .form-control:focus { border-color: #667eea; outline: none; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+    .btn-login { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+    .btn-login:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); }
+    .error-msg { background: #fee2e2; color: #dc2626; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-size: 14px; }
+    .form-footer { text-align: center; margin-top: 20px; color: #666; }
+    .form-footer a { color: #667eea; text-decoration: none; font-weight: 600; }
+    .form-footer a:hover { text-decoration: underline; }
+    .error { color: #dc2626; font-size: 14px; margin-top: 5px; display: block; }
 </style>
 </head>
 
 <body>
- <nav>
-  <a href="firstpage.php">Home</a>
- 
-   <a href="login.html">Login</a>
-  <a href="studentRegistration.html">Register</a>
-  <a href="result.php">Result</a>
-  <a href="about.html">About Us</a>
-  <a href="help.html">Help</a>
-   <a href="logout.php">logout</a>
-</nav>
+    <header>
+        <div class="header-container">
+            <div class="logo">
+                <div class="logo-icon"><i class="fas fa-vote-yea"></i></div>
+                <span class="logo-text">Voting System</span>
+            </div>
+            <nav>
+                 <a href="firstpage.php">Home</a>
+                 <a href="login.html" class="active">Login</a>
+                 <a href="studentRegistration.html">Register</a>
+                 <a href="about.html">About Us</a>
+                 <a href="noticeboard.php">Notice Board</a>
+            </nav>
+        </div>
+    </header>
 
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h2>Welcome Back</h2>
+                <p>Please login to your account</p>
+            </div>
+            
+            <div id="urlErrorMsg" class="error-msg" style="display: none;"></div>
 
-
-<form action="login.php" method="POST" onsubmit="return validateForm()">
-<h2>Login</h2>
-
-<p class="error" id="serverError"></p>
-
-<input type="email" name="email" id="email" placeholder="Email">
-<span class="error" id="emailError"></span>
-
-<div class="password-container">
-    <input type="password" name="password" id="password" placeholder="Password">
-    <span class="eye-btn" onclick="togglePassword()">👁</span>
-</div>
-<span class="error" id="passwordError"></span>
-
-<select name="role" id="role">
-    <option value="">Select Role</option>
-    <option value="Admin">Admin</option>
-    <option value="Voter">Voter</option>
-</select>
-<span class="error" id="roleError"></span>
-
-<input type="submit" name="login" value="Login">
-<p> Donot have an account? <a href="studentRegistration.html">Register from  here</a></p>
-</form>
+            <form action="login.php" method="POST" onsubmit="return validateLoginForm()">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="email" name="email" class="form-control" placeholder="Enter your email">
+                    <span class="error" id="emailError"></span>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="Enter your password">
+                    <span class="error" id="passwordError"></span>
+                </div>
+                <button type="submit" class="btn-login">Login</button>
+            </form>
+            
+            <div class="form-footer">
+                <p>Don't have an account? <a href="studentRegistration.html">Register here</a></p>
+                <p style="margin-top: 10px;"><a href="forgotpassword.php">Forgot Password?</a></p>
+            </div>
+        </div>
+    </div>
 
 <script>
-function togglePassword() {
-    let p = document.getElementById("password");
-    p.type = (p.type === "password") ? "text" : "password";
-}
+    // Check for URL parameters for errors
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const success = urlParams.get('success');
+    const errorDiv = document.getElementById('urlErrorMsg');
+    
+    if (error) {
+        errorDiv.style.display = 'block';
+        if (error === 'invalid_credentials') errorDiv.innerText = 'Invalid email or password!';
+        else if (error === 'empty_fields') errorDiv.innerText = 'Please fill in all fields!';
+        else if (error === 'account_not_found') errorDiv.innerText = 'Account not found. Please register first!';
+        else errorDiv.innerText = 'An error occurred.';
+    } else if (success) {
+        errorDiv.style.display = 'block';
+        errorDiv.style.background = '#d1fae5';
+        errorDiv.style.color = '#065f46';
+        if (success === 'registered') errorDiv.innerText = 'Registration successful! Please login.';
+        else if (success === 'logout') errorDiv.innerText = 'You have been logged out successfully.';
+    }
 
-function validateForm() {
-    let email = email = document.getElementById("email").value.trim();
+function validateLoginForm() {
+    let isValid = true;
+    
+    // Clear previous errors
+    document.querySelectorAll(".error").forEach(e => e.innerText = "");
+    
+    let email = document.getElementById("email").value.trim();
     let password = document.getElementById("password").value.trim();
-    let role = document.getElementById("role").value;
-
-    document.getElementById("emailError").innerText = "";
-    document.getElementById("passwordError").innerText = "";
-    document.getElementById("roleError").innerText = "";
-
-    let valid = true;
-
-    if(email === ""){
-        document.getElementById("emailError").innerText = "Email required";
-        valid = false;
+    
+    // Email validation
+    if (email === "") {
+        document.getElementById("emailError").innerText = "Email is required";
+        isValid = false;
+    } else if (!/^[^ ]+@[^ ]+\.[a-z]{2,3}$/.test(email)) {
+        document.getElementById("emailError").innerText = "Invalid email format";
+        isValid = false;
     }
-
-    if(password === ""){
-        document.getElementById("passwordError").innerText = "Password required";
-        valid = false;
+    
+    // Password validation
+    if (password === "") {
+        document.getElementById("passwordError").innerText = "Password is required";
+        isValid = false;
+    } else if (password.length < 8) {
+        document.getElementById("passwordError").innerText = "Password must be at least 8 characters";
+        isValid = false;
     }
-
-    if(role === ""){
-        document.getElementById("roleError").innerText = "Select role";
-        valid = false;
-    }
-
-    return valid;
-}
-
-// show server error
-const params = new URLSearchParams(window.location.search);
-if(params.get("error")){
-    document.getElementById("serverError").innerText = params.get("error");
+    
+    return isValid;
 }
 </script>
-
 </body>
 </html>
