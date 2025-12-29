@@ -82,10 +82,30 @@ input, select { width:100%; padding:8px; margin:5px 0 15px 0; border:1px solid #
     <input type="text" name="position" required><br>
 
     Faculty:<br>
-    <input type="text" name="faculty" required><br>
-
+    <!-- <input type="text" name="faculty" required><br> -->
+<select id="faculty" name="faculty" class="form-control">
+                        <option value="">-- Select Faculty --</option>
+                        <option>BCA</option>
+                        <option>BBS</option>
+                        <option>B.ED</option>
+                    </select>
     Class:<br>
-    <input type="text" name="class" required><br>
+    <!-- <input type="text" name="class" required><br> -->
+    <select id="class" name="class" class="form-control">
+                        <option value="">-- Select Class --</option>
+                        <option>1st Semester</option>
+                        <option>2nd Semester</option>
+                        <option>3rd Semester</option>
+                        <option>4th Semester</option>
+                        <option>5th Semester</option>
+                        <option>6th Semester</option>
+                        <option>7th Semester</option>
+                        <option>8th Semester</option>
+                        <option>1st Year</option>
+                        <option>2nd Year</option>
+                        <option>3rd Year</option>
+                        <option>4th Year</option>
+                    </select>
 
     Photo:<br>
     <input type="file" name="image" required><br>
