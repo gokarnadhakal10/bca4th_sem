@@ -42,18 +42,45 @@ $requests = $conn->query("SELECT r.*, u.name AS voter_name
 <meta charset="UTF-8">
 <title>Admin Dashboard</title>
 <style>
-body{margin:0;font-family:sans-serif;background:#eef2f7;}
+body{margin:0;font-family:sans-serif;
+    background:#eef2f7;}
 /* Sidebar */
-.sidebar{width:220px;height:100vh;position:fixed;background:#222;color:white;padding-top:20px;}
-.sidebar h2{text-align:center;}
-.sidebar a{color:white;text-decoration:none;display:block;padding:12px 20px;}
-.sidebar a:hover{background:#444;}
+.sidebar{width:220px;
+    height:100vh;
+    position:fixed;
+    background:#222; 
+    color:white; 
+    padding-top:20px;}
+.sidebar h2{text-align:center;
+}
+.sidebar a{color:white;
+    text-decoration:none;
+    display:block;padding:12px 20px;}
+.sidebar a:hover{
+    background:#444;
+}
 /* Header */
-.header{margin-left:220px;background:#0d6efd;color:white;padding:15px;display:flex;justify-content:space-between;align-items:center;}
-.header button{padding:8px 15px;border:none;border-radius:5px;cursor:pointer;color:white;background:#f44336;}
+.header{margin-left:220px;
+    background:#0d6efd;
+    color:white;
+    padding:15px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+.header button{padding:8px 15px;
+    border:none;border-radius:5px;
+    cursor:pointer;
+    color:white;
+    background:#f44336;
+}
 /* Main */
-.main{margin-left:220px;padding:20px;}
-button{padding:8px 15px;border:none;border-radius:5px;cursor:pointer;margin:2px;}
+.main{margin-left:220px;
+    padding:20px;}
+button{padding:8px 15px; 
+    border:none;border-radius:5px; 
+    cursor:pointer;
+    margin:2px;}
 /* Dashboard grid */
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px;margin-bottom:20px;}
 .box{background:white;padding:20px;border-radius:6px;text-align:center;font-size:16px;}
@@ -155,7 +182,15 @@ table img {
 <div class="table-container">
 <table>
 <tr>
-<th>ID</th><th>Name</th><th>Party</th><th>Position</th><th>Class</th><th>Faculty</th><th>Photo</th><th>Votes</th><th>Action</th>
+<th>SN</th>
+<th>Name</th>
+<th>Party</th>
+<th>Position</th>
+<th>Class</th>
+<th>Faculty</th>
+<th>Photo</th
+><th>Votes</th>
+<th>Action</th>
 </tr>
 <?php while($c=$candidates->fetch_assoc()):
 $votes = $conn->query("SELECT COUNT(*) as total_votes FROM votes WHERE candidate_id={$c['id']}")->fetch_assoc()['total_votes'];

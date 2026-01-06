@@ -8,7 +8,28 @@ if ($conn->connect_error) {
 }
 
 // Fetch candidates/hero images
-$result = $conn->query("SELECT * FROM candidates ORDER BY id DESC");
+// $result = $conn->query("SELECT * FROM candidates ORDER BY id DESC");
+
+$candidates = [
+    'President' => [],
+    'Vice President' => [],
+    'Treasurer' => []
+];
+
+$query = $conn->query("SELECT * FROM candidates");
+while ($row = $query->fetch_assoc()) {
+
+    $pos = strtolower(trim($row['position']));
+
+    if ($pos == 'president') {
+        $candidates['President'][] = $row;
+    } elseif ($pos == 'vice president' || $pos == 'vice-president' || $pos == 'vicepresident') {
+        $candidates['Vice President'][] = $row;
+    } elseif ($pos == 'treasurer') {
+        $candidates['Treasurer'][] = $row;
+    }
+}
+
 
 // Fetch Hero Image
 $hero_img = "uploads/candidates.png"; // Default fallback
@@ -427,7 +448,7 @@ if($h_query && $h_query->num_rows > 0){
             <nav id="mainNav">
                  <a href="firstpage.php">Home</a>
                  <a href="login.html">Login</a>
-                 <a href="studentRegistration.html">Register</a>
+                 <a href="result.php">Result</a>
                  <a href="about.html">About Us</a>
                  <a href="noticeboard.php">Notice Board</a>
             </nav>
@@ -455,35 +476,45 @@ if($h_query && $h_query->num_rows > 0){
     </section>
 
     <!-- Candidates Section -->
-    <section class="candidates-section">
+     <section class="candidates-section">
         <h2 class="section-title">Candidates</h2>
-        <div class="candidates-grid">
-            <?php if ($result && $result->num_rows > 0): ?>
-                <?php while ($row = $result->fetch_assoc()): ?>
-                    <div class="candidate-card">
-                        <img src="uploads/<?php echo htmlspecialchars($row['photo']); ?>" 
+      
+
+<div class="candidates-grid" style="grid-template-columns: repeat(3, 1fr);">
+
+    <?php foreach ($candidates as $position => $list): ?>
+        <div>
+            <h3 style="text-align:center; margin-bottom:20px;">
+                <?php echo htmlspecialchars($position); ?>
+            </h3>
+
+            <?php if (!empty($list)): ?>
+                <?php foreach ($list as $row): ?>
+                    <div class="candidate-card" style="margin-bottom:20px;">
+                        <img src="uploads/<?php echo htmlspecialchars($row['photo']); ?>"
                              alt="<?php echo htmlspecialchars($row['name']); ?>"
                              onerror="this.src='https://via.placeholder.com/300x280?text=No+Image'">
+
                         <div class="candidate-info">
                             <h3><?php echo htmlspecialchars($row['name']); ?></h3>
-                            <p><strong><i class="fas fa-graduation-cap"></i> Class:</strong> <?php echo htmlspecialchars($row['class']); ?></p>
-                            <div class="position-tag">
-                                <i class="fas fa-award"></i> <?php echo htmlspecialchars($row['position']); ?>
-                            </div>
+                            <p><strong>Class:</strong> <?php echo htmlspecialchars($row['class']); ?></p>
+
                             <button class="vote-btn" onclick="window.location.href='login.html'">
                                 <i class="fas fa-vote-yea"></i> Vote Now
                             </button>
                         </div>
                     </div>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             <?php else: ?>
-                <div class="no-candidates">
-                    <i class="fas fa-users-slash"></i>
-                    <h3>No Candidates Available</h3>
-                    <p>The candidate list will be updated soon. Please check back later.</p>
-                </div>
+                <p style="text-align:center; color:#666;">No candidates</p>
             <?php endif; ?>
         </div>
+    <?php endforeach; ?>
+
+</div>
+
+
+
     </section>
 
     <!-- Footer -->
