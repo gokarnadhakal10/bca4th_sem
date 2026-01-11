@@ -8,28 +8,15 @@ if ($conn->connect_error) {
 }
 
 // Fetch candidates/hero images
-// $result = $conn->query("SELECT * FROM candidates ORDER BY id DESC");
-
-$candidates = [
-    'President' => [],
-    'Vice President' => [],
-    'Treasurer' => []
-];
-
+$candidates_by_position = [];
 $query = $conn->query("SELECT * FROM candidates");
-while ($row = $query->fetch_assoc()) {
-
-    $pos = strtolower(trim($row['position']));
-
-    if ($pos == 'president') {
-        $candidates['President'][] = $row;
-    } elseif ($pos == 'vice president' || $pos == 'vice-president' || $pos == 'vicepresident') {
-        $candidates['Vice President'][] = $row;
-    } elseif ($pos == 'treasurer') {
-        $candidates['Treasurer'][] = $row;
+if ($query) {
+    while ($row = $query->fetch_assoc()) {
+        $pos = ucwords(strtolower(trim($row['position'])));
+        $candidates_by_position[$pos][] = $row;
     }
 }
-
+ksort($candidates_by_position);
 
 // Fetch Hero Image
 $hero_img = "uploads/candidates.png"; // Default fallback
@@ -49,390 +36,7 @@ if($h_query && $h_query->num_rows > 0){
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Online Voting System - Home</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-
-        header {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.98);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            position: fixed;
-            top: 0;
-            z-index: 1000;
-        }
-
-        .header-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 40px;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .logo-icon {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 24px;
-        }
-
-        .logo-text {
-            font-size: 24px;
-            font-weight: bold;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        nav {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-
-        nav a {
-            padding: 10px 20px;
-            color: #333;
-            text-decoration: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        nav a:hover {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            transform: translateY(-2px);
-        }
-
-        nav a.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .hero {
-            margin-top: 80px;
-            padding: 60px 40px;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 40px;
-            min-height: 500px;
-        }
-
-        .hero-content {
-            flex: 1;
-            max-width: 600px;
-            color: white;
-        }
-
-        .hero-content h1 {
-            font-size: 48px;
-            margin-bottom: 20px;
-            line-height: 1.2;
-        }
-
-        .hero-content p {
-            font-size: 18px;
-            line-height: 1.8;
-            margin-bottom: 30px;
-        }
-
-        .hero-buttons {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 14px 32px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            display: inline-block;
-        }
-
-        .btn-primary {
-            background: white;
-            color: #667eea;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 2px solid white;
-        }
-
-        .btn-secondary:hover {
-            background: white;
-            color: #667eea;
-        }
-
-        .hero-image {
-            flex: 1;
-            max-width: 500px;
-        }
-
-        .hero-image img {
-            width: 100%;
-            height: auto;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-        }
-
-        .candidates-section {
-            padding: 60px 40px;
-            background: #f8f9fa;
-        }
-
-        .section-title {
-            text-align: center;
-            font-size: 36px;
-            margin-bottom: 50px;
-            color: #333;
-        }
-
-        .candidates-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 30px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .candidate-card {
-            background: white;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-        }
-
-        .candidate-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 12px 30px rgba(102, 126, 234, 0.3);
-        }
-
-        .candidate-card img {
-            width: 100%;
-            height: 280px;
-            object-fit: cover;
-        }
-
-        .candidate-info {
-            padding: 24px;
-        }
-
-        .candidate-info h3 {
-            font-size: 24px;
-            margin-bottom: 12px;
-            color: #333;
-        }
-
-        .candidate-info p {
-            color: #666;
-            margin: 8px 0;
-            font-size: 15px;
-        }
-
-        .position-tag {
-            display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 8px 20px;
-            border-radius: 20px;
-            margin: 12px 0;
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .vote-btn {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 15px;
-        }
-
-        .vote-btn:hover {
-            transform: scale(1.02);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .no-candidates {
-            text-align: center;
-            padding: 60px 40px;
-            background: white;
-            border-radius: 12px;
-            max-width: 600px;
-            margin: 0 auto;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .no-candidates i {
-            font-size: 64px;
-            color: #667eea;
-            margin-bottom: 20px;
-        }
-
-        .no-candidates h3 {
-            font-size: 28px;
-            color: #333;
-            margin-bottom: 12px;
-        }
-
-        .no-candidates p {
-            color: #666;
-            font-size: 16px;
-        }
-
-        footer {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 40px 20px;
-            text-align: center;
-        }
-
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin: 20px 0;
-            flex-wrap: wrap;
-        }
-
-        .footer-links a {
-            color: white;
-            text-decoration: none;
-            font-weight: 500;
-            transition: 0.3s;
-        }
-
-        .footer-links a:hover {
-            opacity: 0.8;
-            text-decoration: underline;
-        }
-
-        .social-links {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin: 20px 0;
-        }
-
-        .social-links a {
-            width: 40px;
-            height: 40px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 18px;
-            transition: 0.3s;
-        }
-
-        .social-links a:hover {
-            background: white;
-            color: #667eea;
-        }
-
-        @media (max-width: 768px) {
-            .header-container {
-                padding: 15px 20px;
-            }
-
-            .hero {
-                flex-direction: column;
-                padding: 40px 20px;
-                text-align: center;
-            }
-
-            .hero-content h1 {
-                font-size: 32px;
-            }
-
-            .hero-content p {
-                font-size: 16px;
-            }
-
-            .hero-buttons {
-                justify-content: center;
-            }
-
-            .candidates-grid {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-
-            .footer-links {
-                flex-direction: column;
-                gap: 15px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .logo-text {
-                font-size: 18px;
-            }
-
-            .hero-content h1 {
-                font-size: 26px;
-            }
-
-            .btn {
-                padding: 12px 24px;
-                font-size: 14px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="firstpage.css"> <!-- External CSS -->
 </head>
 <body>
     <!-- Header -->
@@ -476,45 +80,42 @@ if($h_query && $h_query->num_rows > 0){
     </section>
 
     <!-- Candidates Section -->
-     <section class="candidates-section">
+    <section class="candidates-section">
         <h2 class="section-title">Candidates</h2>
       
-
-<div class="candidates-grid" style="grid-template-columns: repeat(3, 1fr);">
-
-    <?php foreach ($candidates as $position => $list): ?>
-        <div>
-            <h3 style="text-align:center; margin-bottom:20px;">
+        <div class="positions-container">
+            <?php foreach ($candidates_by_position as $position => $list): ?>
+            <div class="position-column">
+                <h3 style="text-align:center; margin-bottom:25px; color: #333; font-size: 22px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; text-transform: uppercase; letter-spacing: 1px;">
                 <?php echo htmlspecialchars($position); ?>
-            </h3>
+                </h3>
 
-            <?php if (!empty($list)): ?>
-                <?php foreach ($list as $row): ?>
-                    <div class="candidate-card" style="margin-bottom:20px;">
-                        <img src="uploads/<?php echo htmlspecialchars($row['photo']); ?>"
-                             alt="<?php echo htmlspecialchars($row['name']); ?>"
-                             onerror="this.src='https://via.placeholder.com/300x280?text=No+Image'">
+                <?php if (!empty($list)): ?>
+                    <?php foreach ($list as $row): ?>
+                        <div class="candidate-card">
+                            <img src="uploads/<?php echo htmlspecialchars($row['photo']); ?>"
+                                 alt="<?php echo htmlspecialchars($row['name']); ?>"
+                                 onerror="this.src='https://via.placeholder.com/300x280?text=No+Image'">
 
-                        <div class="candidate-info">
-                            <h3><?php echo htmlspecialchars($row['name']); ?></h3>
-                            <p><strong>Class:</strong> <?php echo htmlspecialchars($row['class']); ?></p>
+                            <div class="candidate-info">
+                                <h3><?php echo htmlspecialchars($row['name']); ?></h3>
+                                <p><strong>Class:</strong> <?php echo htmlspecialchars($row['class']); ?></p>
+                                <?php if(!empty($row['party_name'])): ?>
+                                <p><strong>Party:</strong> <?php echo htmlspecialchars($row['party_name']); ?></p>
+                                <?php endif; ?>
 
-                            <button class="vote-btn" onclick="window.location.href='login.html'">
-                                <i class="fas fa-vote-yea"></i> Vote Now
-                            </button>
+                                <button class="vote-btn" onclick="window.location.href='login.html'">
+                                    <i class="fas fa-vote-yea"></i> Vote Now
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <p style="text-align:center; color:#666;">No candidates</p>
-            <?php endif; ?>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <p style="text-align:center; color:#666; font-style: italic;">No candidates available.</p>
+                <?php endif; ?>
+            </div>
+            <?php endforeach; ?>
         </div>
-    <?php endforeach; ?>
-
-</div>
-
-
-
     </section>
 
     <!-- Footer -->
@@ -525,10 +126,11 @@ if($h_query && $h_query->num_rows > 0){
                 <a href="firstpage.php">Home</a>
                 <a href="login.html">Login</a>
                 <a href="studentRegistration.html">Register</a>
+                <a href="result.php">Results</a>
                 <a href="help.html">Help</a>
             </div>
             <p style="margin-top: 20px; opacity: 0.9;">
-                &copy; <?php echo date('Y'); ?>Voting System. All rights reserved.
+                &copy; <?php echo date('Y'); ?> Voting System. All rights reserved.
             </p>
         </div>
     </footer>

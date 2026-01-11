@@ -57,8 +57,8 @@ a {
     <th>role</th>
     <th>faculty</th>
     <th>class</th>
-    <th>photo</th>
     <th>password</th>
+    <th>photo</th>
      <th>Action</th>
 </tr>
 <?php while ($row = $result->fetch_assoc()){

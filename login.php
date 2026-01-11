@@ -2,14 +2,13 @@
 session_start();
 require "config.php";
 
-$error = "";
-
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = trim($_POST["email"]);
     $password = trim($_POST["password"]);
     
     if (empty($email) || empty($password)) {
-        $error = "Please fill in all fields.";
+        header("Location: login.html?error=empty_fields");
+        exit();
     } else {
         // Check user in database
         $stmt = $conn->prepare("SELECT id, name, email, password, role FROM users WHERE email = ?");
@@ -33,10 +32,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
                 exit();
             } else {
-                $error = "Invalid password.";
+                header("Location: login.html?error=invalid_credentials");
+                exit();
             }
         } else {
-            $error = "Account not found.";
+            header("Location: login.html?error=account_not_found");
+            exit();
         }
         $stmt->close();
     }

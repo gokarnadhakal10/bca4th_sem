@@ -20,33 +20,6 @@ $notices_query = "
 ";
 $notices = $conn->query($notices_query);
 
-// Get voting session info - FIXED: Check if query returns results
-$session_result = $conn->query("SELECT * FROM voting_session WHERE id=1");
-$session = $session_result ? $session_result->fetch_assoc() : null;
-
-// Get recent results if published
-$results_by_position = [];
-if ($session && isset($session['results_published']) && $session['results_published']) {
-    $results = $conn->query("
-        SELECT c.position, c.name as candidate_name, c.party, 
-               COUNT(v.id) as vote_count,
-               ROUND((COUNT(v.id) * 100.0 / (SELECT COUNT(*) FROM votes WHERE position = c.position)), 2) as percentage
-        FROM candidates c 
-        LEFT JOIN votes v ON c.id = v.candidate_id
-        WHERE v.id IS NOT NULL
-        GROUP BY c.position, c.id
-        ORDER BY c.position, vote_count DESC
-    ");
-    if ($results) {
-        while($row = $results->fetch_assoc()) {
-            $position = $row['position'];
-            if (!isset($results_by_position[$position])) {
-                $results_by_position[$position] = [];
-            }
-            $results_by_position[$position][] = $row;
-        }
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -586,7 +559,6 @@ if ($session && isset($session['results_published']) && $session['results_publis
             <nav id="mainNav">
                 <a href="firstpage.php">Home</a>
                 <a href="login.html">Login</a>
-                <a href="studentRegistration.html">Register</a>
                 <a href="noticeboard.php" class="active">Notice Board</a>
                 <a href="help.html">Help</a>
             </nav>
@@ -603,65 +575,11 @@ if ($session && isset($session['results_published']) && $session['results_publis
         <div class="filter-tabs">
             <button class="filter-tab active" onclick="filterNotices('all')">All Notices</button>
             <button class="filter-tab" onclick="filterNotices('election')">Election Updates</button>
-            <button class="filter-tab" onclick="filterNotices('result')">Results</button>
         </div>
     </section>
 
     <!-- Main Container -->
     <div class="main-container">
-        <!-- Results Section -->
-        <?php if ($session && isset($session['results_published']) && $session['results_published'] && !empty($results_by_position)): ?>
-        <section class="results-section">
-            <h2 class="section-title">Election Results 2025</h2>
-            
-            <div class="results-grid">
-                <?php foreach ($results_by_position as $position => $position_results): ?>
-                <div class="position-results">
-                    <h3 class="position-title"><?php echo htmlspecialchars($position); ?></h3>
-                    
-                    <?php $rank = 1; ?>
-                    <?php foreach ($position_results as $result): ?>
-                    <div class="result-item">
-                        <div class="candidate-rank"><?php echo $rank++; ?></div>
-                        <div class="candidate-info">
-                            <div class="candidate-name"><?php echo htmlspecialchars($result['candidate_name']); ?></div>
-                            <div class="candidate-party"><?php echo htmlspecialchars($result['party']); ?></div>
-                        </div>
-                        <div class="vote-stats">
-                            <div class="vote-count"><?php echo $result['vote_count']; ?> votes</div>
-                            <div class="vote-percentage"><?php echo $result['percentage']; ?>%</div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: <?php echo $result['percentage']; ?>%"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </section>
-        <?php elseif ($session && isset($session['results_published']) && $session['results_published']): ?>
-        <section class="results-section">
-            <div class="empty-state">
-                <div class="empty-icon">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <h3>No Results Published Yet</h3>
-                <p>Election results will be displayed here once they are available. Please check back later.</p>
-            </div>
-        </section>
-        <?php else: ?>
-        <section class="results-section">
-            <div class="empty-state">
-                <div class="empty-icon">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <h3>Results Not Published</h3>
-                <p>The election results are not yet published. Results will appear here once the election committee publishes them.</p>
-            </div>
-        </section>
-        <?php endif; ?>
-
         <!-- Notices Section -->
         <h2 class="section-title">Latest Notices & Announcements</h2>
         
@@ -722,7 +640,6 @@ if ($session && isset($session['results_published']) && $session['results_publis
             <div class="footer-links">
                 <a href="firstpage.php">Home</a>
                 <a href="login.html">Login</a>
-                <a href="studentRegistration.html">Register</a>
                 <a href="noticeboard.php">Notice Board</a>
                 <a href="help.html">Help</a>
             </div>
