@@ -24,64 +24,104 @@ if (isset($_POST['add'])) {
     $photo_tmp = $_FILES['photo']['tmp_name'];
     $party_image_tmp = $_FILES['party_image']['tmp_name'];
 
+    // Image Validation
+    $valid_upload = true;
+    $upload_msg = "";
+    $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
+    $allowed_mimes = ['image/jpeg', 'image/png', 'image/gif'];
+    $max_size = 5 * 1024 * 1024; // 5MB
+
+    // Validate Photo
+    if (!empty($photo)) {
+        $ext = strtolower(pathinfo($photo, PATHINFO_EXTENSION));
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file($photo_tmp);
+        
+        if ($_FILES['photo']['size'] > $max_size) {
+            $valid_upload = false;
+            $upload_msg = "Candidate photo is too large (Max 5MB).";
+        } elseif (!in_array($ext, $allowed_exts) || !in_array($mime, $allowed_mimes)) {
+            $valid_upload = false;
+            $upload_msg = "Invalid candidate photo format. Only JPG, PNG, GIF allowed.";
+        }
+    }
+
+    // Validate Party Image
+    if ($valid_upload && !empty($party_image)) {
+        $ext = strtolower(pathinfo($party_image, PATHINFO_EXTENSION));
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file($party_image_tmp);
+        
+        if ($_FILES['party_image']['size'] > $max_size) {
+            $valid_upload = false;
+            $upload_msg = "Party image is too large (Max 5MB).";
+        } elseif (!in_array($ext, $allowed_exts) || !in_array($mime, $allowed_mimes)) {
+            $valid_upload = false;
+            $upload_msg = "Invalid party image format. Only JPG, PNG, GIF allowed.";
+        }
+    }
+
     // Create uploads folder if not exists
     if (!is_dir("uploads")) {
         mkdir("uploads");
     }
 
-    // Check for duplicate candidate
-    $check_stmt = $conn->prepare("SELECT * FROM candidates WHERE name=? AND party_name=? AND position=? AND faculty=? AND class=?");
-    $check_stmt->bind_param("sssss", $name, $party_name, $position, $faculty, $class);
-    $check_stmt->execute();
-    $check_result = $check_stmt->get_result();
-
-    if($check_result->num_rows > 0){
-        echo "<p style='color:red; text-align:center;'>Candidate already exists!</p>";
+    if (!$valid_upload) {
+        echo "<p style='color:red; text-align:center;'>$upload_msg</p>";
     } else {
-        // Move uploaded files
-        $upload_success = true;
-        $photo_path = "";
-        $party_image_path = "";
-        
-        if(!empty($photo) && move_uploaded_file($photo_tmp, "uploads/".$photo)){
-            $photo_path = $photo;
-        } else {
-            $upload_success = false;
-            echo "<p style='color:red; text-align:center;'>Failed to upload candidate photo!</p>";
-        }
-        
-        if(!empty($party_image) && move_uploaded_file($party_image_tmp, "uploads/".$party_image)){
-            $party_image_path = $party_image;
-        } else {
-            // Party image might be optional, so don't fail the whole process
-            $party_image_path = "";
-        }
-        
-        if($upload_success){
-            // Find the lowest available ID (Gap Detection)
-            $id_result = $conn->query("SELECT id FROM candidates ORDER BY id ASC");
-            $next_id = 1;
-            while ($row = $id_result->fetch_assoc()) {
-                if ($row['id'] == $next_id) {
-                    $next_id++;
-                } else {
-                    break;
-                }
-            }
-            // Insert candidate using prepared statement - matches your table structure
-            $stmt = $conn->prepare("INSERT INTO candidates(id, name, position, party_name, party_image, faculty, class, platform, photo) VALUES(?,?,?,?,?,?,?,?,?)");
-            $stmt->bind_param("issssssss", $next_id, $name, $position, $party_name, $party_image_path, $faculty, $class, $platform, $photo_path);
-            
-            if($stmt->execute()){
-                echo "<p style='color:green; text-align:center;'>Candidate added successfully!</p>";
-            } else {
-                echo "<p style='color:red; text-align:center;'>Error: ".$stmt->error."</p>";
-            }
-            $stmt->close();
-        }
-    }
+        // Check for duplicate candidate
+        $check_stmt = $conn->prepare("SELECT * FROM candidates WHERE name=? AND party_name=? AND position=? AND faculty=? AND class=?");
+        $check_stmt->bind_param("sssss", $name, $party_name, $position, $faculty, $class);
+        $check_stmt->execute();
+        $check_result = $check_stmt->get_result();
 
-    $check_stmt->close();
+        if($check_result->num_rows > 0){
+            echo "<p style='color:red; text-align:center;'>Candidate already exists!</p>";
+        } else {
+            // Move uploaded files
+            $upload_success = true;
+            $photo_path = "";
+            $party_image_path = "";
+            
+            if(!empty($photo) && move_uploaded_file($photo_tmp, "uploads/".$photo)){
+                $photo_path = $photo;
+            } else {
+                $upload_success = false;
+                echo "<p style='color:red; text-align:center;'>Failed to upload candidate photo!</p>";
+            }
+            
+            if(!empty($party_image) && move_uploaded_file($party_image_tmp, "uploads/".$party_image)){
+                $party_image_path = $party_image;
+            } else {
+                // Party image might be optional, so don't fail the whole process
+                $party_image_path = "";
+            }
+            
+            if($upload_success){
+                // Find the lowest available ID (Gap Detection)
+                $id_result = $conn->query("SELECT id FROM candidates ORDER BY id ASC");
+                $next_id = 1;
+                while ($row = $id_result->fetch_assoc()) {
+                    if ($row['id'] == $next_id) {
+                        $next_id++;
+                    } else {
+                        break;
+                    }
+                }
+                // Insert candidate using prepared statement - matches your table structure
+                $stmt = $conn->prepare("INSERT INTO candidates(id, name, position, party_name, party_image, faculty, class, platform, photo) VALUES(?,?,?,?,?,?,?,?,?)");
+                $stmt->bind_param("issssssss", $next_id, $name, $position, $party_name, $party_image_path, $faculty, $class, $platform, $photo_path);
+                
+                if($stmt->execute()){
+                    echo "<p style='color:green; text-align:center;'>Candidate added successfully!</p>";
+                } else {
+                    echo "<p style='color:red; text-align:center;'>Error: ".$stmt->error."</p>";
+                }
+                $stmt->close();
+            }
+        }
+        $check_stmt->close();
+    }
 }
 
 $conn->close();
@@ -128,7 +168,7 @@ textarea { height:100px; resize:vertical; }
             <option value="BCA">BCA</option>
             <option value="BBS">BBS</option>
             <option value="B.ED">B.ED</option>
-            <!-- Add more faculties as needed -->
+       
         </select>
     </div>
     

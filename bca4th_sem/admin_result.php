@@ -156,7 +156,7 @@ $positions = $conn->query("SELECT DISTINCT position FROM candidates");
         </div>
         <ul class="nav-links">
             <li><a href="AdminDashboard.php"><i class="fas fa-th-large"></i> Dashboard</a></li>
-            <li><a href="voters.php"><i class="fas fa-users"></i> Voters</a></li>
+            <li><a href="voters.php"><i class="fas fa-users"></i> Users</a></li>
             <li><a href="candidates.php"><i class="fas fa-user-tie"></i> Candidates</a></li>
             <li><a href="admin_result.php" class="active"><i class="fas fa-chart-bar"></i> Results</a></li>
             <li><a href="admin_notices.php"><i class="fas fa-bullhorn"></i> Notices</a></li>

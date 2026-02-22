@@ -43,13 +43,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle Photo Upload
     $photo = $_FILES['photo']['name'] ?? '';
     $photo_tmp = $_FILES['photo']['tmp_name'] ?? '';
+    $photo_size = $_FILES['photo']['size'] ?? 0;
+    $photo_error = $_FILES['photo']['error'] ?? UPLOAD_ERR_NO_FILE;
     $photo_path = "";
 
     if (!empty($photo)) {
+        if ($photo_error !== UPLOAD_ERR_OK) {
+            $_SESSION['error'] = "Upload error for photo. Code: " . $photo_error;
+            header("Location: userDashboard.php");
+            exit();
+        }
+        if ($photo_size > 5 * 1024 * 1024) { // 5MB Limit
+            $_SESSION['error'] = "Candidate photo is too large. Max 5MB allowed.";
+            header("Location: userDashboard.php");
+            exit();
+        }
+
         $ext = strtolower(pathinfo($photo, PATHINFO_EXTENSION));
         $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file($photo_tmp);
+        $allowed_mimes = ['image/jpeg', 'image/png', 'image/gif'];
         
-        if (in_array($ext, $allowed_extensions)) {
+        if (in_array($ext, $allowed_extensions) && in_array($mime, $allowed_mimes)) {
             $new_name = time() . "_" . $voter_id . "_candidate." . $ext;
             if (move_uploaded_file($photo_tmp, "uploads/" . $new_name)) {
                 $photo_path = $new_name;
@@ -68,13 +84,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle Party Image Upload
     $party_image = $_FILES['party_image']['name'] ?? '';
     $party_image_tmp = $_FILES['party_image']['tmp_name'] ?? '';
+    $party_image_size = $_FILES['party_image']['size'] ?? 0;
+    $party_image_error = $_FILES['party_image']['error'] ?? UPLOAD_ERR_NO_FILE;
     $party_image_path = "";
 
     if (!empty($party_image)) {
+        if ($party_image_error !== UPLOAD_ERR_OK) {
+            $_SESSION['error'] = "Upload error for party image. Code: " . $party_image_error;
+            header("Location: userDashboard.php");
+            exit();
+        }
+        if ($party_image_size > 5 * 1024 * 1024) { // 5MB Limit
+            $_SESSION['error'] = "Party image is too large. Max 5MB allowed.";
+            header("Location: userDashboard.php");
+            exit();
+        }
+
         $ext = strtolower(pathinfo($party_image, PATHINFO_EXTENSION));
         $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file($party_image_tmp);
+        $allowed_mimes = ['image/jpeg', 'image/png', 'image/gif'];
         
-        if (in_array($ext, $allowed_extensions)) {
+        if (in_array($ext, $allowed_extensions) && in_array($mime, $allowed_mimes)) {
             $new_party_img = time() . "_party_" . $voter_id . "." . $ext;
             if (move_uploaded_file($party_image_tmp, "uploads/" . $new_party_img)) {
                 $party_image_path = $new_party_img;
