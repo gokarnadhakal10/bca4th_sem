@@ -22,10 +22,20 @@ $totalVotes = $conn->query(
 )->fetch_assoc()['total'];
 
 // Fetch voting session
-$vote_session = $conn->query("SELECT * FROM voting_session WHERE id=1")->fetch_assoc();
+$vote_session_result = $conn->query("SELECT * FROM voting_session WHERE id=1");
+$vote_session = ($vote_session_result && $vote_session_result->num_rows > 0) ? $vote_session_result->fetch_assoc() : [
+    'start_time' => date('Y-m-d H:i:s'),
+    'end_time' => date('Y-m-d H:i:s', strtotime('+1 day')),
+    'status' => 'Pending'
+];
 
 // Fetch candidate nomination session
-$nomination_session = $conn->query("SELECT * FROM nomination_session WHERE id=1")->fetch_assoc();
+$nomination_session_result = $conn->query("SELECT * FROM nomination_session WHERE id=1");
+$nomination_session = ($nomination_session_result && $nomination_session_result->num_rows > 0) ? $nomination_session_result->fetch_assoc() : [
+    'start_time' => date('Y-m-d H:i:s'),
+    'end_time' => date('Y-m-d H:i:s', strtotime('+1 day')),
+    'status' => 'Pending'
+];
 
 // Fetch candidates - Updated to match your table structure
 $candidates = $conn->query("SELECT * FROM candidates ORDER BY id DESC");
@@ -510,7 +520,8 @@ $requests = $conn->query("SELECT r.*, u.name AS voter_name
                         <th>ID</th>
                         <th>Name</th>
                         <th>Photo</th>
-                        <th>Party-Symbol</th>
+                        <th>Party</th>
+                        <th>Symbol</th>
                         <th>Position</th>
                         <th>Faculty</th>
                         <th>Class</th>
@@ -533,12 +544,12 @@ $requests = $conn->query("SELECT r.*, u.name AS voter_name
                             <?php endif; ?>
                         </td>
                         <td>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <?php if(!empty($c['party_image'])): ?>
-                                    <img src="uploads/<?= htmlspecialchars($c['party_image']) ?>" style="width: 30px; height: 30px; object-fit: contain; border-radius: 4px;">
-                                <?php endif; ?>
-                                <?= htmlspecialchars($c['party_name'] ?? '') ?>
-                            </div>
+                            <?= htmlspecialchars($c['party_name'] ?? '') ?>
+                        </td>
+                        <td>
+                            <?php if(!empty($c['party_image'])): ?>
+                                <img src="uploads/<?= htmlspecialchars($c['party_image']) ?>" style="width: 30px; height: 30px; object-fit: contain; border-radius: 4px;">
+                            <?php endif; ?>
                         </td>
                         <td><span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 12px;"><?= htmlspecialchars($c['position']) ?></span></td>
                         <td><?= htmlspecialchars($c['faculty']) ?></td>

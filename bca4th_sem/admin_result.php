@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Fetch voting session
 $session = $conn->query("SELECT * FROM voting_session WHERE id=1")->fetch_assoc();
+$results_published = $session['results_published'] ?? 0;
 
 // Fetch positions
 $positions = $conn->query("SELECT DISTINCT position FROM candidates");
@@ -181,20 +182,20 @@ $positions = $conn->query("SELECT DISTINCT position FROM candidates");
         <?php endif; ?>
 
         <!-- Publication Status Control -->
-        <div class="dashboard-section" style="display: flex; justify-content: space-between; align-items: center; border-left: 5px solid <?php echo $session['results_published'] ? '#2ecc71' : '#e74c3c'; ?>;">
+        <div class="dashboard-section" style="display: flex; justify-content: space-between; align-items: center; border-left: 5px solid <?php echo $results_published ? '#2ecc71' : '#e74c3c'; ?>;">
             <div>
                 <h3 style="color: var(--dark); margin-bottom: 5px; display: flex; align-items: center; gap: 10px;">
                     Status: 
-                    <span style="color: <?php echo $session['results_published'] ? '#2ecc71' : '#e74c3c'; ?>; text-transform: uppercase;">
-                        <?php echo $session['results_published'] ? 'Published' : 'Unpublished'; ?>
+                    <span style="color: <?php echo $results_published ? '#2ecc71' : '#e74c3c'; ?>; text-transform: uppercase;">
+                        <?php echo $results_published ? 'Published' : 'Unpublished'; ?>
                     </span>
                 </h3>
                 <p style="color: #666; font-size: 14px;">
-                    <?php echo $session['results_published'] ? 'Results are currently visible to all students on the result page.' : 'Results are hidden from students. Only admins can view them.'; ?>
+                    <?php echo $results_published ? 'Results are currently visible to all students on the result page.' : 'Results are hidden from students. Only admins can view them.'; ?>
                 </p>
             </div>
             <form method="POST">
-                <?php if($session['results_published']): ?>
+                <?php if($results_published): ?>
                     <button type="submit" name="unpublish_results" class="btn btn-danger"><i class="fas fa-eye-slash"></i> Unpublish Results</button>
                 <?php else: ?>
                     <button type="submit" name="publish_results" class="btn btn-success"><i class="fas fa-eye"></i> Publish Results</button>
@@ -222,7 +223,8 @@ $positions = $conn->query("SELECT DISTINCT position FROM candidates");
                 $total_votes_query = $conn->prepare("SELECT COUNT(*) as total FROM votes WHERE position = ?");
                 $total_votes_query->bind_param("s", $pos['position']);
                 $total_votes_query->execute();
-                $total_votes = $total_votes_query->get_result()->fetch_assoc()['total'];
+                $total_votes_row = $total_votes_query->get_result()->fetch_assoc();
+                $total_votes = $total_votes_row['total'] ?? 0;
                 if ($total_votes == 0) $total_votes = 1; // Avoid division by zero
             ?>
             <div class="dashboard-section">

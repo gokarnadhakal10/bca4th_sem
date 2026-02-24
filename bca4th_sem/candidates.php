@@ -219,6 +219,7 @@ $result = $conn->query("SELECT * FROM candidates");
                         <th>ID</th>
                         <th>Candidate Info</th>
                         <th>Party</th>
+                        <th>Symbol</th>
                         <th>Position</th>
                         <th>Faculty / Class</th>
                         <th>Actions</th>
@@ -235,27 +236,27 @@ $result = $conn->query("SELECT * FROM candidates");
                                 <?php if (!empty($row['photo']) && file_exists("uploads/".$row['photo'])) { ?>
                                     <img src="uploads/<?php echo htmlspecialchars($row['photo']); ?>" class="user-avatar" alt="Candidate">
                                 <?php } else { ?>
-                                    <div class="user-avatar"><?php echo strtoupper(substr($row['name'], 0, 1)); ?></div>
+                                    <div class="user-avatar"><?php echo strtoupper(substr($row['name'] ?? '', 0, 1)); ?></div>
                                 <?php } ?>
-                                <span style="font-weight: 500;"><?php echo htmlspecialchars($row['name']); ?></span>
+                                <span style="font-weight: 500;"><?php echo htmlspecialchars($row['name'] ?? ''); ?></span>
                             </div>
                         </td>
                         <td>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <?php if (!empty($row['party_image']) && file_exists("uploads/".$row['party_image'])) { ?>
-                                    <img src="uploads/<?php echo htmlspecialchars($row['party_image']); ?>" class="party-logo" alt="Party">
-                                <?php } ?>
-                                <span><?php echo htmlspecialchars($row['party_name']); ?></span>
-                            </div>
+                            <span><?php echo htmlspecialchars($row['party_name'] ?? ''); ?></span>
+                        </td>
+                        <td>
+                            <?php if (!empty($row['party_image']) && file_exists("uploads/".$row['party_image'])) { ?>
+                                <img src="uploads/<?php echo htmlspecialchars($row['party_image']); ?>" class="party-logo" alt="Party">
+                            <?php } ?>
                         </td>
                         <td>
                             <span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-                                <?php echo htmlspecialchars($row['position']); ?>
+                                <?php echo htmlspecialchars($row['position'] ?? ''); ?>
                             </span>
                         </td>
                         <td>
-                            <div><?php echo htmlspecialchars($row['faculty']); ?></div>
-                            <div style="font-size: 12px; color: #888;"><?php echo htmlspecialchars($row['class']); ?></div>
+                            <div><?php echo htmlspecialchars($row['faculty'] ?? ''); ?></div>
+                            <div style="font-size: 12px; color: #888;"><?php echo htmlspecialchars($row['class'] ?? ''); ?></div>
                         </td>
                         <td>
                             <div style="display: flex; gap: 5px;">

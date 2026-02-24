@@ -26,8 +26,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $status = 'Pending';
     }
     
-    $stmt = $conn->prepare("UPDATE nomination_session SET start_time=?, end_time=?, status=? WHERE id=1");
-    $stmt->bind_param("sss", $start_time, $end_time, $status);
+    // Check if session exists
+    $check = $conn->query("SELECT id FROM nomination_session WHERE id=1");
+    
+    if ($check->num_rows > 0) {
+        $stmt = $conn->prepare("UPDATE nomination_session SET start_time=?, end_time=?, status=? WHERE id=1");
+        $stmt->bind_param("sss", $start_time, $end_time, $status);
+    } else {
+        $stmt = $conn->prepare("INSERT INTO nomination_session (id, start_time, end_time, status) VALUES (1, ?, ?, ?)");
+        $stmt->bind_param("sss", $start_time, $end_time, $status);
+    }
     
     if ($stmt->execute()) {
         $_SESSION['message'] = "Nomination session updated successfully!";

@@ -71,7 +71,7 @@ if($h_query && $h_query->num_rows > 0){
             </p>
             <div class="hero-buttons">
                 <a href="login.html" class="btn btn-primary">Vote Now</a>
-                <a href="studentRegistration.html" class="btn btn-secondary">Register</a>
+              
             </div>
         </div>
         <div class="hero-image">
@@ -125,7 +125,6 @@ if($h_query && $h_query->num_rows > 0){
             <div class="footer-links">
                 <a href="firstpage.php">Home</a>
                 <a href="login.html">Login</a>
-                <a href="studentRegistration.html">Register</a>
                 <a href="result.php">Results</a>
                 <a href="help.html">Help</a>
             </div>
