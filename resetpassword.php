@@ -85,7 +85,12 @@ if(isset($_POST['reset']))
         <input type="password" name="password" id="password" placeholder="New Password" required>
         <input type="password" name="confirm" id="confirm" placeholder="Confirm Password" required>
         <button type="submit" name="reset">Update Password</button>
+
     </form>
+    <button type="button" onclick="window.location.href='login.html'" 
+        style="margin-top:10px; background:#555;">
+    Back to Login
+</button>
 </div>
 
 <script>
