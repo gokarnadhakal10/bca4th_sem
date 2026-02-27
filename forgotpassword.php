@@ -1,31 +1,75 @@
+<?php
+include "db.php";
+session_start();
+?>
+
+<!DOCTYPE html>
 <html>
 <head>
-    <title>password </head>
+    <title>Forgot Password</title>
+    <style>
+        body{
+            font-family: Arial;
+            background:#f2f2f2;
+        }
+        .box{
+            width:350px;
+            margin:100px auto;
+            padding:20px;
+            background:white;
+            border-radius:8px;
+            box-shadow:0 0 10px gray;
+        }
+        input{
+            width:100%;
+            padding:10px;
+            margin:8px 0;
+        }
+        button{
+            width:100%;
+            padding:10px;
+            background:blue;
+            color:white;
+            border:none;
+            cursor:pointer;
+        }
+        .error{
+            color:red;
+        }
+    </style>
 </head>
-<style>
-
-body{
-    margin:3px;
-    padding:10px;
-}
-body .h2{
-    color:yellow;
-    
-}
-input{
-    color:white;
-    
-}
-
-</style>
 <body>
-<form action="resetPassword.php" method="post">
+
+<div class="box">
     <h2>Forgot Password</h2>
 
-    <input type="email" name="email" placeholder="Enter Email" required><br>
-    <input type="text" name="phone" placeholder="Enter Phone Number" required><br>
+    <?php
+    if(isset($_POST['verify']))
+    {
+        $email = $_POST['email'];
+        $mobile = $_POST['mobile'];
 
-    <input type="submit" value="Reset Password">
-</form>
+        $sql = "SELECT * FROM users WHERE email='$email' AND mobile='$mobile'";
+        $result = $conn->query($sql);
+
+        if($result->num_rows > 0)
+        {
+            $_SESSION['reset_email'] = $email;
+            header("Location: resetpassword.php");
+        }
+        else
+        {
+            echo "<p class='error'>Wrong Email or Mobile!</p>";
+        }
+    }
+    ?>
+
+    <form method="POST">
+        <input type="email" name="email" placeholder="Enter Email" required>
+        <input type="text" name="mobile" placeholder="Enter Mobile" required>
+        <button type="submit" name="verify">Submit</button>
+    </form>
+</div>
+
 </body>
 </html>

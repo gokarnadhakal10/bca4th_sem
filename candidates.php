@@ -218,7 +218,7 @@ $result = $conn->query("SELECT * FROM candidates");
                     <tr>
                         <th>ID</th>
                         <th>Candidate Info</th>
-                        <th>Party</th>
+                        <th>Party </th>
                         <th>Symbol</th>
                         <th>Position</th>
                         <th>Faculty / Class</th>

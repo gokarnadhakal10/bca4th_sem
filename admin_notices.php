@@ -13,10 +13,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $expires_at = !empty($_POST['expires_at']) ? $_POST['expires_at'] : NULL;
         $is_active = isset($_POST['is_active']) ? 1 : 0;
         $created_by = $_SESSION['admin_id'];
-        
-        $stmt = $conn->prepare("INSERT INTO notices (title, content, category, priority, expires_at, is_active, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("ssssssi", $title, $content, $category, $priority, $expires_at, $is_active, $created_by);
-        
+        $published_at = $is_active ? date('Y-m-d H:i:s') : NULL;
+
+$stmt = $conn->prepare("
+    INSERT INTO notices 
+    (title, content, category, priority, expires_at, is_active, created_by, published_at) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+");
+
+$stmt->bind_param(
+    "sssssiis",
+    $title,
+    $content,
+    $category,
+    $priority,
+    $expires_at,
+    $is_active,
+    $created_by,
+    $published_at
+);
+       
+
+
+
         if ($stmt->execute()) {
             $success = "Notice added successfully!";
         } else {
@@ -325,7 +344,11 @@ $session = $conn->query("SELECT * FROM voting_session WHERE id=1")->fetch_assoc(
                         </thead>
                         <tbody>
                             <?php while($notice = $notices->fetch_assoc()): 
-                                $published_date = date('M d, Y', strtotime($notice['published_at']));
+                               if (!empty($notice['published_at'])) {
+                              $published_date = date('M d, Y', strtotime($notice['published_at']));
+                                  } else {
+                                    $published_date = "Not Published";
+                                 }
                                 $category_class = 'badge-' . strtolower($notice['category']);
                                 $priority_class = 'priority-' . strtolower($notice['priority']);
                             ?>
@@ -333,7 +356,13 @@ $session = $conn->query("SELECT * FROM voting_session WHERE id=1")->fetch_assoc(
                                 <td><strong><?php echo htmlspecialchars($notice['title']); ?></strong></td>
                                 <td><span class="category-badge <?php echo $category_class; ?>"><?php echo $notice['category']; ?></span></td>
                                 <td><span class="priority-badge <?php echo $priority_class; ?>"><?php echo $notice['priority']; ?></span></td>
-                                <td><?php echo $published_date; ?></td>
+                                <td>
+                               <?php if ($published_date === "Not Published"): ?>
+                                      <span style="color: gray; font-style: italic;">Not Published</span>
+                                          <?php else: ?>
+                                              <?php echo $published_date; ?>
+                                                 <?php endif; ?>
+                                                                                 </td>
                                 <td>
                                     <?php if($notice['is_active']): ?>
                                         <span style="color: #2ecc71; font-weight: 600;"><i class="fas fa-check-circle"></i> Active</span>
