@@ -4,9 +4,8 @@
     <nav>
         <a href="firstpage.html">Home</a>
         <a href="login.php">Login</a>
-        <a href="register.php">Register</a>
-        <a href="notice.php">Notice Board</a>
         <a href="about.php">About Us</a>
+        <a href="noticeboard.php">Notice Board</a>
         <a href="help.php">Help</a>
     </nav>
 </header>

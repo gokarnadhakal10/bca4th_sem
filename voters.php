@@ -1,110 +1,314 @@
 <?php
-
+session_start();
 require 'config.php';
-
- require "auth.php";
+require "auth.php";
 admin_required();
-$result= $conn-> query("SELECT * FROM users");
+
+$result = $conn->query("SELECT * FROM users");
+
+// Check voting session status to disable adding users during an election for security
+$can_add_voters = true;
+$session_check = $conn->query("SELECT status FROM voting_session WHERE id = 1");
+if ($session_check && $session_check->num_rows > 0) {
+    $session = $session_check->fetch_assoc();
+    if (isset($session['status']) && in_array($session['status'], ['Active', 'Paused'])) {
+        $can_add_voters = false;
+    }
+}
+
 ?>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Voter Management</title>
-<style>
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-th, td {
-    border: 1px solid #999;
-    padding: 8px;
-    text-align: center;
-}
-a {
-    text-decoration: none;
-    padding: 5px 10px;
-}
-.back-btn{
-    display: inline-block;
-    padding: 10px 18px;
-    background-color: #0d6efd;
-    color: white;
-    text-decoration: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    transition: background 0.3s ease;
-}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voter Management - Admin Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --warning: #f8961e;
+            --info: #4895ef;
+            --dark: #1a1a2e;
+            --light: #f8f9fa;
+            --sidebar-width: 260px;
+        }
 
-.back-btn:hover{
-    background-color: #084298;
-}
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        
+        body {
+            background: #f0f2f5;
+            display: flex;
+            min-height: 100vh;
+        }
 
-</style>
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            position: fixed;
+            height: 100vh;
+            padding: 20px;
+            z-index: 100;
+            transition: all 0.3s;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .nav-links { list-style: none; }
+        .nav-links li { margin-bottom: 10px; }
+        
+        .nav-links a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            background: rgba(67, 97, 238, 0.2);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 30px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .welcome-text h2 { color: var(--dark); font-size: 24px; }
+        .welcome-text p { color: #666; font-size: 14px; }
+
+        /* Dashboard Sections */
+        .dashboard-section {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .section-title { font-size: 18px; font-weight: 600; color: var(--dark); display: flex; align-items: center; gap: 10px; }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: #2ecc71; color: white; }
+        .btn-warning { background: #f1c40f; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-info { background: #3498db; color: white; }
+        
+        .btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        .btn.disabled {
+            background-color: #bdc3c7 !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .btn.disabled:hover { transform: none; opacity: 0.7; }
+
+        /* Tables */
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; font-weight: 600; color: #555; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        td { padding: 15px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-active { background: #e8f5e9; color: #2e7d32; }
+        .status-blocked { background: #ffebee; color: #c62828; }
+
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .main-content { margin-left: 0; }
+        }
+    </style>
 </head>
 <body>
-<!-- BACK BUTTON -->
-<a href="AdminDashboard.php" class="back-btn">
-    <button>⬅ Back </button>
-</a>
-<h2>Voter Management</h2>
-<table>
-<tr>
-    <th>ID</th>
-    <th>Name</th>
-    <th>Email</th>
-    <th>mobile</th>
-    <th>role</th>
-    <th>faculty</th>
-    <th>class</th>
-    <th>photo</th>
-    <th>password</th>
-     <th>Action</th>
-</tr>
-<?php while ($row = $result->fetch_assoc()){
-?>
 
+<!-- Sidebar -->
+<div class="sidebar">
+    <div class="sidebar-header">
+        <div class="logo-icon"><i class="fas fa-vote-yea"></i></div>
+        <h3>Admin Panel</h3>
+    </div>
+    <ul class="nav-links">
+        <li><a href="AdminDashboard.php"><i class="fas fa-th-large"></i> Dashboard</a></li>
+        <li><a href="voters.php" class="active"><i class="fas fa-users"></i> Users</a></li>
+        <li><a href="candidates.php"><i class="fas fa-user-tie"></i> Candidates</a></li>
+        <li><a href="admin_result.php"><i class="fas fa-chart-bar"></i> Results</a></li>
+        <li><a href="admin_notices.php"><i class="fas fa-bullhorn"></i> Notices</a></li>
+        <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        <li><a href="reset_election.php" style="color: #f72585;"><i class="fas fa-redo"></i> Reset Election</a></li>
+    </ul>
+</div>
 
+<!-- Main Content -->
+<div class="main-content">
+    <div class="header">
+        <div class="welcome-text">
+            <h2>Voter Management</h2>
+            <p>Manage registered voters, update details, and control access.</p>
+        </div>
+        <a href="logout.php" class="btn btn-danger"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
 
-<tr>
-    <td><?php echo $row['id']; ?></td>
-    <td><?php echo $row['name']; ?></td>
-    <td><?php echo $row['email']; ?></td>
-    <td><?php echo $row['mobile']; ?></td>
-    <td><?php echo $row['role']; ?></td>
-    <td><?php echo $row['faculty']; ?></td>
-    <td><?php echo $row['class']; ?></td>
+    <div class="dashboard-section">
+        <div class="section-header">
+            <div class="section-title"><i class="fas fa-users"></i> Registered Voters List</div>
+            <?php if ($can_add_voters): ?>
+                <a href="studentRegistration.html" class="btn btn-primary"><i class="fas fa-plus"></i> Add Voter</a>
+            <?php else: ?>
+                <a href="#" class="btn btn-primary disabled" onclick="alert('Unable to add voters. User registration is disabled during an active election for security reasons.'); return false;" title="User registration is disabled during an active election period for security reasons."><i class="fas fa-plus"></i> Add Voter</a>
+            <?php endif; ?>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>User Info</th>
+                        <th>Contact</th>
+                        <th>Role</th>
+                        <th>Faculty / Class</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php while ($row = $result->fetch_assoc()) { 
+                        $status = isset($row['status']) ? $row['status'] : 'Active';
+                        $role = $row['role'];
+                    ?>
+                    <tr>
+                        <td>
+                            #<?php echo $row['id']; ?>
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <?php if (!empty($row['photo']) && file_exists($row['photo'])) { ?>
+                                    <img src="<?php echo htmlspecialchars($row['photo']); ?>" class="user-avatar" alt="User">
+                                <?php } else { ?>
+                                    <div class="user-avatar"><?php echo strtoupper(substr($row['name'], 0, 1)); ?></div>
+                                <?php } ?>
+                                <span style="font-weight: 500;"><?php echo htmlspecialchars($row['name']); ?></span>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-size: 13px;"><?php echo htmlspecialchars($row['email']); ?></div>
+                            <div style="font-size: 12px; color: #888;"><?php echo htmlspecialchars($row['mobile']); ?></div>
+                        </td>
+                        <td>
+                            <span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                <?php echo htmlspecialchars($role); ?>
+                            </span>
+                        </td>
+                        <td>
+                            <div><?php echo htmlspecialchars($row['faculty']); ?></div>
+                            <div style="font-size: 12px; color: #888;"><?php echo htmlspecialchars($row['class']); ?></div>
+                        </td>
+                        <td>
+                            <span class="status-badge <?php echo strtolower($status) == 'active' ? 'status-active' : 'status-blocked'; ?>">
+                                <?php echo htmlspecialchars($status); ?>
+                            </span>
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 5px;">
+                                <a href="edit_voter.php?id=<?php echo $row['id']; ?>" class="btn btn-info" style="padding: 5px 10px;">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <?php if (strtolower($status) == 'active') { ?>
+                                    <a href="block_voter.php?id=<?php echo $row['id']; ?>" class="btn btn-danger" style="padding: 5px 10px;" onclick="return confirm('Are you sure you want to block this user?')">
+                                        <i class="fas fa-ban"></i>
+                                    </a>
+                                <?php } else { ?>
+                                    <a href="block_voter.php?id=<?php echo $row['id']; ?>" class="btn btn-success" style="padding: 5px 10px;" onclick="return confirm('Are you sure you want to unblock this user?')">
+                                        <i class="fas fa-check-circle"></i>
+                                    </a>
+                                <?php } ?>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php } ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
-   
-    <td>********</td>
-
-    <td>
-        <?php if (!empty($row['photo'])) { ?>
-            <img src="<?php echo $row['photo']; ?>" width="80" height="80" style="object-fit:cover; border-radius:5px;">
-        <?php } else { ?>
-            No Photo
-        <?php } ?>
-    </td>
-
-    <!-- ACTION COLUMN -->
-    <td>
-        <a href="edit_voter.php?id=<?php echo $row['id']; ?>">Edit</a>
-        |
-        <a href="block_voter.php?id=<?php echo $row['id']; ?>"
-           onclick="return confirm('Are you sure?')">
-            <?php echo ($row['status'] == 'active') ? 'Block' : 'Unblock'; ?>
-        </a>
-    </td>
-</tr>
-
-
-
-
-<?php } ?>
-
-</table>
 </body>
 </html>
-
-
-

@@ -3,991 +3,696 @@ require "config.php";
 require "auth.php";
 admin_required();
 
-// Fetch candidates
-$candidates = $conn->query("SELECT * FROM candidates");
+// ===== DASHBOARD COUNTS =====
+$totalVoters = $conn->query(
+    "SELECT COUNT(*) AS total FROM users WHERE role='Voter'"
+)->fetch_assoc()['total'];
+
+$activeVoters = $conn->query(
+    "SELECT COUNT(*) AS total FROM users 
+     WHERE role='Voter' AND status='Active'"
+)->fetch_assoc()['total'];
+
+$totalCandidates = $conn->query(
+    "SELECT COUNT(*) AS total FROM candidates"
+)->fetch_assoc()['total'];
+
+$totalVotes = $conn->query(
+    "SELECT COUNT(*) AS total FROM votes"
+)->fetch_assoc()['total'];
 
 // Fetch voting session
-$session = $conn->query("SELECT * FROM voting_session WHERE id=1")->fetch_assoc();
+$vote_session_result = $conn->query("SELECT * FROM voting_session WHERE id=1");
+$vote_session = ($vote_session_result && $vote_session_result->num_rows > 0) ? $vote_session_result->fetch_assoc() : [
+    'start_time' => date('Y-m-d H:i:s'),
+    'end_time' => date('Y-m-d H:i:s', strtotime('+1 day')),
+    'status' => 'Pending'
+];
 
-// Get statistics
-$total_voters = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='Voter'")->fetch_assoc()['total'];
-$total_candidates = $conn->query("SELECT COUNT(*) as total FROM candidates")->fetch_assoc()['total'];
-$total_votes = $conn->query("SELECT COUNT(*) as total FROM votes")->fetch_assoc()['total'];
-$active_voters = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='Voter' AND status='Active'")->fetch_assoc()['total'];
+// Determine if election is locked (no more changes to voters/candidates)
+$is_election_locked = false;
+if (isset($vote_session['status']) && in_array($vote_session['status'], ['Active', 'Paused'])) {
+    $is_election_locked = true;
+}
 
-// Get recent activities
-$recent_votes = $conn->query("
-    SELECT v.*, u.name as voter_name, c.name as candidate_name 
-    FROM votes v 
-    JOIN users u ON v.voter_id = u.id 
-    JOIN candidates c ON v.candidate_id = c.id 
-    ORDER BY v.id DESC  -- Changed from v.created_at DESC to v.id DESC
-    LIMIT 5
-");
+// Fetch candidate nomination session
+$nomination_session_result = $conn->query("SELECT * FROM nomination_session WHERE id=1");
+$nomination_session = ($nomination_session_result && $nomination_session_result->num_rows > 0) ? $nomination_session_result->fetch_assoc() : [
+    'start_time' => date('Y-m-d H:i:s'),
+    'end_time' => date('Y-m-d H:i:s', strtotime('+1 day')),
+    'status' => 'Pending'
+];
+
+// Determine session start constraints
+$nomination_status = $nomination_session['status'] ?? 'Pending';
+$voting_status = $vote_session['status'] ?? 'Pending';
+
+// Voting can only start if nomination is NOT active or paused.
+$can_start_voting_session = !in_array($nomination_status, ['Active', 'Paused']);
+
+// Nomination can only start if voting is NOT active or paused.
+$can_start_nomination_session = !in_array($voting_status, ['Active', 'Paused']);
+
+// Current date for input validation
+$current_date_min = date('Y-m-d\TH:i');
+
+
+// Fetch candidates - Updated to match your table structure
+$candidates = $conn->query("SELECT * FROM candidates ORDER BY id DESC");
+
+// Fetch pending candidate requests
+$requests = $conn->query("SELECT r.*, u.name AS voter_name 
+                          FROM candidate_requests r 
+                          JOIN users u ON r.voter_id=u.id 
+                          WHERE r.status='pending'");
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard | Voting System</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #4361ee;
-            --primary-dark: #3a56d4;
-            --secondary: #7209b7;
-            --accent: #f72585;
-            --success: #4cc9f0;
-            --warning: #f8961e;
-            --danger: #f72585;
-            --dark: #1a1a2e;
-            --light: #f8f9fa;
-            --gray: #6c757d;
-            --card-bg: #ffffff;
-            --sidebar-bg: #1a1a2e;
-            --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
-            --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
-            --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
-            --radius: 12px;
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #333;
-            min-height: 100vh;
-            line-height: 1.6;
-        }
-
-        /* Header */
-        .admin-header {
-            background: rgba(255, 255, 255, 0.98);
-            box-shadow: var(--shadow-lg);
-            position: fixed;
-            top: 0;
-            width: 100%;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .header-container {
-            max-width: 100%;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 30px;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .logo-icon {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 24px;
-        }
-
-        .logo-text {
-            font-family: 'Poppins', sans-serif;
-            font-size: 24px;
-            font-weight: bold;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        .admin-nav {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .admin-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 8px 16px;
-            background: rgba(67, 97, 238, 0.1);
-            border-radius: 50px;
-        }
-
-        .admin-avatar {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, var(--accent), var(--secondary));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 18px;
-        }
-
-        .logout-btn {
-            padding: 10px 24px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: var(--transition);
-        }
-
-        .logout-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
-        }
-
-        /* Main Layout */
-        .dashboard-layout {
-            display: flex;
-            min-height: calc(100vh - 80px);
-            margin-top: 80px;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 250px;
-            background: var(--sidebar-bg);
-            color: white;
-            position: fixed;
-            height: calc(100vh - 80px);
-            overflow-y: auto;
-            box-shadow: var(--shadow-lg);
-            z-index: 900;
-        }
-
-        .sidebar-header {
-            padding: 30px 20px;
-            text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .sidebar-header h3 {
-            font-family: 'Poppins', sans-serif;
-            font-size: 1.2rem;
-            color: white;
-        }
-
-        .sidebar-menu {
-            padding: 20px 0;
-        }
-
-        .menu-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 15px 25px;
-            color: rgba(255,255,255,0.8);
-            text-decoration: none;
-            transition: var(--transition);
-            border-left: 4px solid transparent;
-        }
-
-        .menu-item:hover {
-            background: rgba(255,255,255,0.1);
-            color: white;
-            border-left-color: var(--primary);
-        }
-
-        .menu-item.active {
-            background: rgba(255,255,255,0.15);
-            color: white;
-            border-left-color: var(--primary);
-        }
-
-        .menu-item i {
-            font-size: 1.1rem;
-            width: 24px;
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            margin-left: 250px;
-            padding: 30px;
-            background: rgba(255,255,255,0.95);
-            min-height: calc(100vh - 80px);
-        }
-
-        /* Dashboard Grid */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: white;
-            border-radius: var(--radius);
-            padding: 25px;
-            box-shadow: var(--shadow-md);
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            transition: var(--transition);
-            border: 1px solid rgba(0,0,0,0.05);
-        }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .stat-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.8rem;
-            color: white;
-        }
-
-        .stat-icon.voters {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-        }
-
-        .stat-icon.candidates {
-            background: linear-gradient(135deg, var(--accent), #d63384);
-        }
-
-        .stat-icon.votes {
-            background: linear-gradient(135deg, var(--success), #00b4d8);
-        }
-
-        .stat-icon.active {
-            background: linear-gradient(135deg, var(--warning), #f3722c);
-        }
-
-        .stat-info h3 {
-            font-size: 2rem;
-            font-weight: 700;
-            margin: 0;
-            color: var(--dark);
-        }
-
-        .stat-info p {
-            color: var(--gray);
-            font-size: 0.9rem;
-            margin: 5px 0 0;
-        }
-
-        /* Voting Control Card */
-        .control-card {
-            background: white;
-            border-radius: var(--radius);
-            padding: 30px;
-            box-shadow: var(--shadow-lg);
-            margin-bottom: 30px;
-            border: 1px solid rgba(0,0,0,0.05);
-        }
-
-        .section-title {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-family: 'Poppins', sans-serif;
-            font-size: 1.4rem;
-            font-weight: 600;
-            color: var(--dark);
-            margin-bottom: 25px;
-        }
-
-        .section-title i {
-            color: var(--primary);
-            background: rgba(67, 97, 238, 0.1);
-            padding: 12px;
-            border-radius: 10px;
-        }
-
-        /* Forms */
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: var(--dark);
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 10px;
-            font-family: 'Inter', sans-serif;
-            font-size: 1rem;
-            transition: var(--transition);
-            background: white;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
-        }
-
-        /* Buttons */
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 10px;
-            font-family: 'Inter', sans-serif;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, var(--success), #00b4d8);
-            color: white;
-            box-shadow: 0 4px 15px rgba(76, 201, 240, 0.3);
-        }
-
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(76, 201, 240, 0.4);
-        }
-
-        .btn-warning {
-            background: linear-gradient(135deg, var(--warning), #f3722c);
-            color: white;
-            box-shadow: 0 4px 15px rgba(248, 150, 30, 0.3);
-        }
-
-        .btn-warning:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(248, 150, 30, 0.4);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, var(--danger), #d63384);
-            color: white;
-            box-shadow: 0 4px 15px rgba(247, 37, 133, 0.3);
-        }
-
-        .btn-danger:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(247, 37, 133, 0.4);
-        }
-
-        .btn-sm {
-            padding: 8px 16px;
-            font-size: 0.9rem;
-        }
-
-        /* Quick Actions */
-        .actions-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .action-btn {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            text-decoration: none;
-            color: var(--dark);
-            box-shadow: var(--shadow-sm);
-            border: 2px solid transparent;
-            transition: var(--transition);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .action-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-lg);
-            border-color: var(--primary);
-        }
-
-        .action-btn i {
-            font-size: 2rem;
-            color: var(--primary);
-        }
-
-        .action-btn span {
-            font-weight: 600;
-            font-size: 0.95rem;
-        }
-
-        /* Table */
-        .table-container {
-            background: white;
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-lg);
-            overflow: hidden;
-            margin-top: 20px;
-        }
-
-        .table-header {
-            padding: 20px;
-            border-bottom: 1px solid #e9ecef;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-            padding: 15px;
-            text-align: left;
-            font-weight: 600;
-        }
-
-        td {
-            padding: 15px;
-            border-bottom: 1px solid #e9ecef;
-            color: var(--dark);
-        }
-
-        tr:hover {
-            background: rgba(67, 97, 238, 0.02);
-        }
-
-        .candidate-photo {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid var(--primary);
-        }
-
-        /* Action Buttons */
-        .action-buttons {
-            display: flex;
-            gap: 8px;
-        }
-
-        /* Status Badge */
-        .status-badge {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .status-active {
-            background: rgba(76, 201, 240, 0.1);
-            color: var(--success);
-        }
-
-        .status-paused {
-            background: rgba(248, 150, 30, 0.1);
-            color: var(--warning);
-        }
-
-        .status-ended {
-            background: rgba(247, 37, 133, 0.1);
-            color: var(--danger);
-        }
-
-        /* Recent Activity */
-        .activity-list {
-            background: white;
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow-md);
-        }
-
-        .activity-item {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 15px;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .activity-item:last-child {
-            border-bottom: none;
-        }
-
-        .activity-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: rgba(67, 97, 238, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--primary);
-        }
-
-        .activity-content {
-            flex: 1;
-        }
-
-        .activity-time {
-            font-size: 0.8rem;
-            color: var(--gray);
-        }
-
-        /* Session Status */
-        .session-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            margin-left: 15px;
-        }
-
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .sidebar {
-                width: 220px;
-            }
-            .main-content {
-                margin-left: 220px;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .sidebar {
-                display: none;
-            }
-            .main-content {
-                margin-left: 0;
-                padding: 20px;
-            }
-            .dashboard-grid {
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            }
-            .table-header {
-                flex-direction: column;
-                gap: 15px;
-                align-items: flex-start;
-            }
-            .action-buttons {
-                flex-direction: column;
-            }
-        }
-
-        /* Animation */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .animate-fade {
-            animation: fadeIn 0.5s ease;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard - Online Voting System</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --primary: #4361ee;
+        --secondary: #3f37c9;
+        --success: #4cc9f0;
+        --danger: #f72585;
+        --warning: #f8961e;
+        --info: #4895ef;
+        --dark: #1a1a2e;
+        --light: #f8f9fa;
+        --sidebar-width: 260px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    
+    body {
+        background: #f0f2f5;
+        display: flex;
+        min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+        width: var(--sidebar-width);
+        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+        color: white;
+        position: fixed;
+        height: 100vh;
+        padding: 20px;
+        z-index: 100;
+        transition: all 0.3s;
+    }
+
+    .sidebar-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 30px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        margin-bottom: 20px;
+    }
+
+    .logo-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--primary);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+
+    .nav-links { list-style: none; }
+    .nav-links li { margin-bottom: 10px; }
+    
+    .nav-links a {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 15px;
+        color: rgba(255,255,255,0.8);
+        text-decoration: none;
+        border-radius: 8px;
+        transition: all 0.3s;
+    }
+
+    .nav-links a:hover, .nav-links a.active {
+        background: rgba(67, 97, 238, 0.2);
+        color: white;
+        transform: translateX(5px);
+    }
+
+    /* Main Content */
+    .main-content {
+        margin-left: var(--sidebar-width);
+        flex: 1;
+        padding: 30px;
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .welcome-text h2 { color: var(--dark); font-size: 24px; }
+    .welcome-text p { color: #666; font-size: 14px; }
+
+    /* Stats Grid */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .stat-card {
+        background: white;
+        padding: 25px;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        transition: transform 0.3s;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .stat-card:hover { transform: translateY(-5px); }
+
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+    }
+
+    .stat-info h3 { font-size: 28px; color: var(--dark); margin-bottom: 5px; }
+    .stat-info p { color: #666; font-size: 14px; }
+
+    /* Dashboard Sections */
+    .dashboard-section {
+        background: white;
+        border-radius: 16px;
+        padding: 25px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        margin-bottom: 30px;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .section-title { font-size: 18px; font-weight: 600; color: var(--dark); display: flex; align-items: center; gap: 10px; }
+
+    /* Grid for Session Controls */
+    .session-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 30px;
+    }
+
+    /* Forms */
+    .control-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        align-items: end;
+    }
+
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: #555; }
+    .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+
+    /* Buttons */
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        font-size: 14px;
+    }
+
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-success { background: #2ecc71; color: white; }
+    .btn-warning { background: #f1c40f; color: white; }
+    .btn-danger { background: #e74c3c; color: white; }
+    .btn-info { background: #3498db; color: white; }
+    .btn-purple { background: #9b59b6; color: white; }
+    
+    .btn:hover { opacity: 0.9; transform: translateY(-2px); }
+    .btn.disabled {
+        background-color: #bdc3c7 !important;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+    .btn.disabled:hover { transform: none; opacity: 0.7; }
+
+    /* Tables */
+    .table-responsive { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f8f9fa; padding: 15px; text-align: left; font-weight: 600; color: #555; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+    td { padding: 15px; border-bottom: 1px solid #eee; vertical-align: middle; }
+    
+    .candidate-img {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    /* Quick Actions Grid */
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 20px;
+    }
+
+    .action-card {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+        transition: all 0.3s;
+        border: 1px solid #eee;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .action-card:hover {
+        background: white;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        transform: translateY(-3px);
+    }
+
+    .action-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: white;
+        margin-bottom: 5px;
+    }
+
+    @media (max-width: 768px) {
+        .sidebar { transform: translateX(-100%); }
+        .main-content { margin-left: 0; }
+    }
+
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Modal Styles */
+    .modal {
+        display: none; 
+        position: fixed; 
+        z-index: 1000; 
+        left: 0;
+        top: 0;
+        width: 100%; 
+        height: 100%; 
+        background-color: rgba(0,0,0,0.5);
+        align-items: center;
+        justify-content: center;
+    }
+    .modal-content {
+        background-color: #fff;
+        padding: 25px;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        animation: slideDown 0.3s ease;
+    }
+</style>
 </head>
 <body>
 
-<!-- Header -->
-<header class="admin-header">
-    <div class="header-container">
-        <div class="logo">
-            <div class="logo-icon">
-                <i class="fas fa-user-shield"></i>
-            </div>
-            <span class="logo-text">Admin Dashboard</span>
+<!-- Sidebar -->
+<div class="sidebar">
+    <div class="sidebar-header">
+        <div class="logo-icon"><i class="fas fa-vote-yea"></i></div>
+        <h3>Admin Panel</h3>
+    </div>
+    <ul class="nav-links">
+        <li><a href="AdminDashboard.php" class="active"><i class="fas fa-th-large"></i> Dashboard</a></li>
+        <li><a href="voters.php"><i class="fas fa-users"></i> Users</a></li>
+        <li><a href="candidates.php"><i class="fas fa-user-tie"></i> Candidates</a></li>
+        <li><a href="admin_result.php"><i class="fas fa-chart-bar"></i> Results</a></li>
+        <li><a href="admin_notices.php"><i class="fas fa-bullhorn"></i> Notices</a></li>
+        <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        <li><a href="reset_election.php" style="color: #f72585;"><i class="fas fa-redo"></i> Reset Election</a></li>
+    </ul>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+    <div class="header">
+        <div class="welcome-text">
+            <h2>Dashboard Overview</h2>
+            <p>Welcome back, Admin! Here's what's happening today.</p>
         </div>
-        
-        <div class="admin-nav">
-            <div class="admin-info">
-                <div class="admin-avatar">
-                    A
-                </div>
-                <div>
-                    <div style="font-weight: 600; color: var(--dark);">Administrator</div>
-                    <div style="font-size: 0.85rem; color: var(--gray);">Super Admin</div>
-                </div>
+        <a href="logout.php" class="btn btn-danger"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+
+    <!-- Notification for Pending Requests -->
+    <?php if($requests->num_rows > 0): ?>
+    <div style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #ffeeba; display: flex; align-items: center; gap: 15px; animation: slideDown 0.5s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <div style="background: #ffc107; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px;"><i class="fas fa-bell"></i></div>
+        <div><strong>Action Required:</strong> You have <?= $requests->num_rows ?> new candidate nomination request(s) pending approval.</div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #4361ee;"><i class="fas fa-users"></i></div>
+            <div class="stat-info">
+                <h3><?= $totalVoters ?></h3>
+                <p>Total Voters</p>
             </div>
-            <a href="logout.php" class="logout-btn">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </a>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #2ecc71;"><i class="fas fa-user-check"></i></div>
+            <div class="stat-info">
+                <h3><?= $activeVoters ?></h3>
+                <p>Active Voters</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #7209b7;"><i class="fas fa-user-tie"></i></div>
+            <div class="stat-info">
+                <h3><?= $totalCandidates ?></h3>
+                <p>Candidates</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #f72585;"><i class="fas fa-vote-yea"></i></div>
+            <div class="stat-info">
+                <h3><?= $totalVotes ?></h3>
+                <p>Total Votes</p>
+            </div>
         </div>
     </div>
-</header>
 
-<!-- Main Layout -->
-<div class="dashboard-layout">
-    <!-- Sidebar -->
-    <nav class="sidebar">
-        <div class="sidebar-header">
-            <h3><i class="fas fa-cogs"></i> Admin Panel</h3>
-        </div>
-        <div class="sidebar-menu">
-            <a href="AdminDashboard.php" class="menu-item active">
-                <i class="fas fa-tachometer-alt"></i> Dashboard
-            </a>
-            <a href="voters.php" class="menu-item">
-                <i class="fas fa-users"></i> Voters Management
-            </a>
-            <a href="candidates.php" class="menu-item">
-                <i class="fas fa-user-tie"></i> Candidates
-            </a>
-            <a href="result.php" class="menu-item">
-                <i class="fas fa-chart-bar"></i> Results
-            </a>
-            <a href="admin_notices.php" class="menu-item">
-                <i class="fas fa-bullhorn"></i> Manage Notices
-            </a>
-            <a href="firstpage.php" class="menu-item">
-                <i class="fas fa-globe"></i> View Website
-            </a>
-            <div style="margin: 30px 25px 0; padding: 20px 0; border-top: 1px solid rgba(255,255,255,0.1);">
-                <div style="color: rgba(255,255,255,0.6); font-size: 0.9rem; margin-bottom: 10px;">Quick Links</div>
-                <a href="add_candidates.php" class="menu-item" style="padding: 10px 25px; font-size: 0.9rem;">
-                    <i class="fas fa-user-plus"></i> Add Candidate
-                </a>
-                <a href="studentRegistration.html" class="menu-item" style="padding: 10px 25px; font-size: 0.9rem;">
-                    <i class="fas fa-user-plus"></i> Add Voter
-                </a>
-                <a href="hero_upload.php" class="menu-item" style="padding: 10px 25px; font-size: 0.9rem;">
-                    <i class="fas fa-image"></i> Hero Page
-                </a>
+    <div class="session-grid">
+        <!-- Voting Session Control -->
+        <div class="dashboard-section">
+            <div class="section-header">
+                <div class="section-title"><i class="fas fa-clock"></i> Voting Session</div>
+                <span class="btn btn-info" style="padding: 5px 10px; font-size: 12px;">
+                    <?= $vote_session['status'] ?? 'Pending' ?>
+                </span>
             </div>
-        </div>
-    </nav>
-
-    <!-- Main Content -->
-    <main class="main-content">
-        <!-- Statistics Grid -->
-        <div class="dashboard-grid animate-fade">
-            <div class="stat-card">
-                <div class="stat-icon voters">
-                    <i class="fas fa-users"></i>
+            <form action="manage_session.php" method="post" class="control-form" style="grid-template-columns: 1fr;">
+                <div class="form-group">
+                    <label>Start Time</label>
+                    <input type="datetime-local" name="start" class="form-control" value="<?= date('Y-m-d\TH:i',strtotime($vote_session['start_time'])) ?>" <?= (!in_array($vote_session['status'], ['Active', 'Paused'])) ? 'min="' . $current_date_min . '"' : '' ?> required>
                 </div>
-                <div class="stat-info">
-                    <h3><?php echo $total_voters; ?></h3>
-                    <p>Total Voters</p>
+                <div class="form-group">
+                    <label>End Time</label>
+                    <input type="datetime-local" name="end" class="form-control" value="<?= date('Y-m-d\TH:i',strtotime($vote_session['end_time'])) ?>" required>
                 </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon candidates">
-                    <i class="fas fa-user-tie"></i>
-                </div>
-                <div class="stat-info">
-                    <h3><?php echo $total_candidates; ?></h3>
-                    <p>Total Candidates</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon votes">
-                    <i class="fas fa-vote-yea"></i>
-                </div>
-                <div class="stat-info">
-                    <h3><?php echo $total_votes; ?></h3>
-                    <p>Total Votes</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon active">
-                    <i class="fas fa-user-check"></i>
-                </div>
-                <div class="stat-info">
-                    <h3><?php echo $active_voters; ?></h3>
-                    <p>Active Voters</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Voting Control Card -->
-        <div class="control-card animate-fade">
-            <div class="section-title">
-                <i class="fas fa-sliders-h"></i>
-                <span>Voting Session Control</span>
-                <?php if($session): ?>
-                    <span class="session-status <?php 
-                        echo $session['status'] == 'Active' ? 'status-active' : 
-                             ($session['status'] == 'Paused' ? 'status-paused' : 'status-ended'); 
-                    ?>">
-                        <i class="fas fa-circle"></i>
-                        <?php echo $session['status']; ?>
-                    </span>
-                <?php endif; ?>
-            </div>
-
-            <form action="voting_session.php" method="POST" class="animate-fade">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 25px;">
-                    <div class="form-group">
-                        <label class="form-label">Start Time</label>
-                        <input type="datetime-local" name="start" class="form-control" required
-                               value="<?= $session ? htmlspecialchars($session['start_time']) : '' ?>">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">End Time</label>
-                        <input type="datetime-local" name="end" class="form-control" required
-                               value="<?= $session ? htmlspecialchars($session['end_time']) : '' ?>">
-                    </div>
-                </div>
-
-                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                    <button type="submit" name="action" value="start" class="btn btn-primary">
-                        <i class="fas fa-play"></i> Start Voting
-                    </button>
-                    <button type="submit" name="action" value="pause" class="btn btn-warning">
-                        <i class="fas fa-pause"></i> Pause Voting
-                    </button>
-                    <button type="submit" name="action" value="resume" class="btn btn-success">
-                        <i class="fas fa-play-circle"></i> Resume Voting
-                    </button>
-                    <button type="submit" name="action" value="end" class="btn btn-danger">
-                        <i class="fas fa-stop"></i> End Voting
-                    </button>
+                <div class="form-group" style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <?php if ($can_start_voting_session): ?>
+                        <button type="submit" name="action" value="start" class="btn btn-success" style="flex: 1;"><i class="fas fa-play"></i> Start</button>
+                    <?php else: ?>
+                        <button type="button" class="btn btn-success disabled" style="flex: 1;" title="End the nomination session before starting to vote." onclick="alert('End the nomination session before starting the voting session.');"><i class="fas fa-play"></i> Start</button>
+                    <?php endif; ?>
+                    <button type="submit" name="action" value="pause" class="btn btn-warning" style="flex: 1;"><i class="fas fa-pause"></i> Pause</button>
+                    <button type="submit" name="action" value="resume" class="btn btn-info" style="flex: 1;"><i class="fas fa-redo"></i> Resume</button>
+                    <button type="submit" name="action" value="end" class="btn btn-danger" style="flex: 1;"><i class="fas fa-stop"></i> End</button>
                 </div>
             </form>
         </div>
 
-        <!-- Quick Actions -->
-        <div class="control-card animate-fade">
-            <div class="section-title">
-                <i class="fas fa-bolt"></i>
-                <span>Quick Actions</span>
+        <!-- Nomination Session -->
+        <div class="dashboard-section">
+            <div class="section-header">
+                <div class="section-title"><i class="fas fa-calendar-alt"></i> Nomination Period</div>
+                <span class="btn btn-info" style="padding: 5px 10px; font-size: 12px;">
+                    <?= $nomination_session['status'] ?? 'Pending' ?>
+                </span>
             </div>
-            
-            <div class="actions-grid">
-                <a href="add_candidates.php" class="action-btn">
-                    <i class="fas fa-user-plus"></i>
-                    <span>Add New Candidate</span>
-                </a>
-                <a href="studentRegistration.html" class="action-btn">
-                    <i class="fas fa-user-plus"></i>
-                    <span>Add New Voter</span>
-                </a>
-                <a href="result.php" class="action-btn">
-                    <i class="fas fa-chart-bar"></i>
-                    <span>Publish Results</span>
-                </a>
-                <a href="hero_upload.php" class="action-btn">
-                    <i class="fas fa-image"></i>
-                    <span>Update Hero Page</span>
-                </a>
-                <a href="admin_notices.php" class="action-btn">
-                    <i class="fas fa-bullhorn"></i>
-                    <span>Manage Notices</span>
-                </a>
-                <a href="voters.php" class="action-btn">
-                    <i class="fas fa-users-cog"></i>
-                    <span>Manage Voters</span>
-                </a>
+            <form action="manage_nomination.php" method="post" class="control-form" style="grid-template-columns: 1fr;">
+                <div class="form-group">
+                    <label>Start Time</label>
+                    <input type="datetime-local" name="start" class="form-control" value="<?= date('Y-m-d\TH:i',strtotime($nomination_session['start_time'])) ?>" <?= (!in_array($nomination_session['status'], ['Active', 'Paused'])) ? 'min="' . $current_date_min . '"' : '' ?> required>
+                </div>
+                <div class="form-group">
+                    <label>End Time</label>
+                    <input type="datetime-local" name="end" class="form-control" value="<?= date('Y-m-d\TH:i',strtotime($nomination_session['end_time'])) ?>" required>
+                </div>
+                <div class="form-group" style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <?php if ($can_start_nomination_session): ?>
+                        <button type="submit" name="action" value="start" class="btn btn-success" style="flex: 1;"><i class="fas fa-play"></i> Start</button>
+                    <?php else: ?>
+                        <button type="button" class="btn btn-success disabled" style="flex: 1;" title="End the voting session before starting the nomination session." onclick="alert('End the voting session before starting the nomination session.');"><i class="fas fa-play"></i> Start</button>
+                    <?php endif; ?>
+                    <button type="submit" name="action" value="pause" class="btn btn-warning" style="flex: 1;"><i class="fas fa-pause"></i> Pause</button>
+                    <button type="submit" name="action" value="resume" class="btn btn-info" style="flex: 1;"><i class="fas fa-redo"></i> Resume</button>
+                    <button type="submit" name="action" value="end" class="btn btn-danger" style="flex: 1;"><i class="fas fa-stop"></i> End</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Pending Requests -->
+    <?php if($requests->num_rows > 0): ?>
+    <div class="dashboard-section">
+        <div class="section-header">
+            <div class="section-title">
+                <i class="fas fa-user-clock"></i> Pending Candidate Requests
+                <span style="background: #e74c3c; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-left: 10px; display: flex; align-items: center; gap: 5px;"><i class="fas fa-exclamation-circle"></i> <?= $requests->num_rows ?> New</span>
             </div>
         </div>
-
-        <!-- Recent Activity -->
-        <?php if($recent_votes && $recent_votes->num_rows > 0): ?>
-        <div class="control-card animate-fade">
-            <div class="section-title">
-                <i class="fas fa-history"></i>
-                <span>Recent Activity</span>
-            </div>
-            <div class="activity-list">
-                <?php while($activity = $recent_votes->fetch_assoc()): ?>
-                <div class="activity-item">
-                    <div class="activity-icon">
-                        <i class="fas fa-vote-yea"></i>
-                    </div>
-                    <div class="activity-content">
-                        <div style="font-weight: 500; color: var(--dark);">
-                            <?php echo htmlspecialchars($activity['voter_name']); ?> voted for <?php echo htmlspecialchars($activity['candidate_name']); ?>
-                        </div>
-                        <div class="activity-time">
-                            <?php echo date('M d, Y - h:i A', strtotime($activity['created_at'])); ?>
-                        </div>
-                    </div>
-                </div>
-                <?php endwhile; ?>
-            </div>
-        </div>
-        <?php endif; ?>
-
-        <!-- Candidates Table -->
-        <div class="control-card animate-fade">
-            <div class="table-header">
-                <div class="section-title" style="margin: 0;">
-                    <i class="fas fa-user-tie"></i>
-                    <span>All Candidates</span>
-                </div>
-                <a href="add_candidates.php" class="btn btn-primary btn-sm">
-                    <i class="fas fa-plus"></i> Add Candidate
-                </a>
-            </div>
-            
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Photo</th>
-                            <th>Name</th>
-                            <th>Party</th>
-                            <th>Position</th>
-                            <th>Class</th>
-                            <th>Faculty</th>
-                            <th>Votes</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php while($c = $candidates->fetch_assoc()): 
-                            // Fetch votes for this candidate
-                            $vote_count_sql = "SELECT COUNT(*) as total_votes FROM votes WHERE candidate_id=?";
-                            $stmt_votes = $conn->prepare($vote_count_sql);
-                            $stmt_votes->bind_param("i", $c['id']);
-                            $stmt_votes->execute();
-                            $vote_result = $stmt_votes->get_result();
-                            $vote_data = $vote_result->fetch_assoc();
-                        ?>
-                        <tr>
-                            <td><?= $c['id'] ?></td>
-                            <td>
-                                <img src="uploads/<?= htmlspecialchars($c['photo']) ?>" 
-                                     alt="Candidate Photo" 
-                                     class="candidate-photo"
-                                     onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($c['name']) ?>&background=4361ee&color=fff'">
-                            </td>
-                            <td><?= htmlspecialchars($c['name']) ?></td>
-                            <td><?= htmlspecialchars($c['party']) ?></td>
-                            <td>
-                                <span class="status-badge status-active">
-                                    <?= htmlspecialchars($c['position']) ?>
-                                </span>
-                            </td>
-                            <td><?= htmlspecialchars($c['class']) ?></td>
-                            <td><?= htmlspecialchars($c['faculty']) ?></td>
-                            <td>
-                                <strong style="color: var(--primary);"><?= $vote_data['total_votes'] ?></strong>
-                            </td>
-                            <td>
-                                <div class="action-buttons">
-                                    <a href="edit_candidates.php?id=<?= $c['id'] ?>" class="btn btn-success btn-sm">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="delete_candidates.php?id=<?= $c['id'] ?>" 
-                                       class="btn btn-danger btn-sm"
-                                       onclick="return confirm('Are you sure you want to delete this candidate?')">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Photo</th>
+                        <th>Candidate Name</th>
+                        <th>Party</th>
+                        <th>Position</th>
+                        <th>Requested By</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php while($r=$requests->fetch_assoc()): ?>
+                    <tr>
+                        <td>
+                            <?php if(!empty($r['photo'])): ?>
+                                <img src="uploads/<?= htmlspecialchars($r['photo']) ?>" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
+                            <?php else: ?>
+                                <div style="width: 60px; height: 60px; background: #ddd; border-radius: 50%; display: flex; align-items: center; justify-content: center;"><i class="fas fa-user"></i></div>
+                            <?php endif; ?>
+                        </td>
+                        <td><?= htmlspecialchars($r['candidate_name']) ?></td>
+                        <td>
+                            <strong><?= htmlspecialchars($r['party'] ?? $r['party_name'] ?? 'N/A') ?></strong>
+                            <?php if(!empty($r['party_image'])): ?>
+                                <div style="margin-top: 5px;">
+                                    <img src="uploads/<?= htmlspecialchars($r['party_image']) ?>" style="width: 60px; height: 60px; object-fit: contain;" title="Party Symbol">
                                 </div>
-                            </td>
-                        </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
+                            <?php endif; ?>
+                        </td>
+                        <td><?= htmlspecialchars($r['position']) ?></td>
+                        <td><?= htmlspecialchars($r['voter_name']) ?></td>
+                        <td>
+                            <div style="display:inline-flex; gap: 5px;">
+                                <form action="approve_request.php" method="post">
+                                    <input type="hidden" name="id" value="<?= $r['id'] ?>">
+                                    <button type="submit" name="action" value="accept" class="btn btn-success" style="padding: 5px 10px; font-size: 12px;">Accept</button>
+                                </form>
+                                <button type="button" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="openRejectModal(<?= $r['id'] ?>)">Reject</button>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endwhile; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Candidates Table - CORRECTED SECTION -->
+    <div class="dashboard-section">
+        <div class="section-header">
+            <div class="section-title"><i class="fas fa-users"></i> All Candidates</div>
+            <?php if (!$is_election_locked): ?>
+                <a href="add_candidates.php" class="btn btn-primary"><i class="fas fa-plus"></i> Add New</a>
+            <?php else: ?>
+                <a href="#" class="btn btn-primary disabled" onclick="alert('Unable to add candidates. This action is disabled during an active election.'); return false;" title="Adding candidates is disabled during an active election."><i class="fas fa-plus"></i> Add New</a>
+            <?php endif; ?>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Photo</th>
+                        <th>Party</th>
+                        <th>Symbol</th>
+                        <th>Position</th>
+                        <th>Faculty</th>
+                        <th>Class</th>
+                        <th>Votes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php while($c=$candidates->fetch_assoc()):
+                    $votes = $conn->query("SELECT COUNT(*) as total_votes FROM votes WHERE candidate_id={$c['id']}")->fetch_assoc()['total_votes'];
+                    ?>
+                    <tr>
+                        <td><?= $c['id'] ?></td>
+                        <td><?= htmlspecialchars($c['name']) ?></td>
+                                                <td>
+                            <?php if(!empty($c['photo'])): ?>
+                                <img src="uploads/<?= $c['photo'] ?>" class="candidate-img" alt="Photo">
+                            <?php else: ?>
+                                <div class="candidate-img" style="background: #ddd; display: flex; align-items: center; justify-content: center;"><i class="fas fa-user"></i></div>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?= htmlspecialchars($c['party_name'] ?? '') ?>
+                        </td>
+                        <td>
+                            <?php if(!empty($c['party_image'])): ?>
+                                <img src="uploads/<?= htmlspecialchars($c['party_image']) ?>" style="width: 60px; height: 60px; object-fit: contain; border-radius: 4px;">
+                            <?php endif; ?>
+                        </td>
+                        <td><span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 12px;"><?= htmlspecialchars($c['position']) ?></span></td>
+                        <td><?= htmlspecialchars($c['faculty']) ?></td>
+                        <td><?= htmlspecialchars($c['class']) ?></td>
+                        <td><strong><?= $votes ?></strong></td>
+                        <td>
+                            <?php if (!$is_election_locked): ?>
+                                <a href="edit_candidates.php?id=<?= $c['id'] ?>" class="btn btn-info" style="padding: 5px 10px; font-size: 12px;" title="Edit Candidate"><i class="fas fa-edit"></i></a>
+                                <a href="delete_candidate.php?id=<?= $c['id'] ?>" onclick="return confirm('Are you sure you want to delete this candidate?')" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" title="Delete Candidate"><i class="fas fa-trash"></i></a>
+                            <?php else: ?>
+                                <a href="#" class="btn btn-info disabled" style="padding: 5px 10px; font-size: 12px;" onclick="alert('Unable to edit candidates. This action is disabled during an active election.'); return false;" title="Editing is disabled during an active election."><i class="fas fa-edit"></i></a>
+                                <a href="#" class="btn btn-danger disabled" style="padding: 5px 10px; font-size: 12px;" onclick="alert('Unable to delete candidates. This action is disabled during an active election.'); return false;" title="Deleting is disabled during an active election."><i class="fas fa-trash"></i></a>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endwhile; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="dashboard-section">
+        <div class="section-header">
+            <div class="section-title"><i class="fas fa-bolt"></i> Quick Actions</div>
+        </div>
+        <div class="quick-actions">
+            <div class="action-card">
+                <div class="action-icon" style="background: #4361ee;"><i class="fas fa-user-plus"></i></div>
+                <h4>Add Candidate</h4> 
+                <?php if (!$is_election_locked): ?>
+                    <a href="add_candidates.php" class="btn btn-success">Go to Add</a>
+                <?php else: ?>
+                    <a href="#" class="btn btn-success disabled" onclick="alert('Unable to add candidates. This action is disabled during an active election.'); return false;" title="Adding candidates is disabled during an active election.">Go to Add</a>
+                <?php endif; ?>
+            </div>
+            <div class="action-card">
+                <div class="action-icon" style="background: #3f37c9;"><i class="fas fa-user-graduate"></i></div>
+                <h4>Add Voter</h4>
+                <?php if (!$is_election_locked): ?>
+                    <a href="studentRegistration.html" class="btn btn-info">Register Voter</a>
+                <?php else: ?>
+                    <a href="#" class="btn btn-info disabled" onclick="alert('Unable to add voters. This action is disabled during an active election.'); return false;" title="User registration is disabled during an active election.">Register Voter</a>
+                <?php endif; ?>
+            </div>
+            <div class="action-card">
+                <div class="action-icon" style="background: #7209b7;"><i class="fas fa-bullhorn"></i></div>
+                <h4>Manage Notices</h4>
+                <a href="admin_notices.php?tab=manage" class="btn btn-purple">View Notices</a>
+            </div>
+            <div class="action-card">
+                <div class="action-icon" style="background: #f72585;"><i class="fas fa-poll"></i></div>
+                <h4>Results Control</h4>
+                <a href="admin_notices.php?tab=results" class="btn btn-warning">Publish Results</a>
+            </div>
+            <div class="action-card">
+                <div class="action-icon" style="background: #4cc9f0;"><i class="fas fa-image"></i></div>
+                <h4>Hero Image</h4>
+                <a href="hero_upload.php" class="btn btn-danger">Update Hero</a>
             </div>
         </div>
-    </main>
+    </div>
+</div>
+
+<!-- Reject Reason Modal -->
+<div id="rejectModal" class="modal">
+    <div class="modal-content">
+        <h3 style="margin-bottom: 15px; color: var(--dark);">Reject Candidate Request</h3>
+        <form action="approve_request.php" method="post">
+            <input type="hidden" name="id" id="reject_request_id">
+            <input type="hidden" name="action" value="reject">
+            
+            <div class="form-group">
+                <label>Reason for Rejection</label>
+                <textarea name="reason" class="form-control" rows="4" required placeholder="Please explain why this request is being rejected..."></textarea>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn btn-info" style="background: #95a5a6;" onclick="document.getElementById('rejectModal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>
-// Toggle mobile sidebar
-function toggleSidebar() {
-    const sidebar = document.querySelector('.sidebar');
-    sidebar.style.display = sidebar.style.display === 'block' ? 'none' : 'block';
-}
-
-// Add active class to clicked menu items
-document.querySelectorAll('.menu-item').forEach(item => {
-    item.addEventListener('click', function() {
-        document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
-        this.classList.add('active');
-    });
-});
-
-// Auto-refresh page every 2 minutes
-setTimeout(() => {
-    console.log('Auto-refreshing admin dashboard...');
-    location.reload();
-}, 120000);
-
-// Voting session status update
-function updateSessionStatus(status) {
-    const statusElement = document.querySelector('.session-status');
-    if (statusElement) {
-        statusElement.className = 'session-status ' + 
-            (status === 'Active' ? 'status-active' : 
-             status === 'Paused' ? 'status-paused' : 'status-ended');
-        statusElement.innerHTML = `<i class="fas fa-circle"></i> ${status}`;
+    function openRejectModal(id) {
+        document.getElementById('reject_request_id').value = id;
+        document.getElementById('rejectModal').style.display = 'flex';
     }
-}
-
-// Confirm before ending voting session
-document.querySelector('button[value="end"]')?.addEventListener('click', function(e) {
-    if (!confirm('Are you sure you want to end the voting session? This cannot be undone.')) {
-        e.preventDefault();
-    }
-});
-
-// Smooth scroll for page sections
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const targetId = this.getAttribute('href');
-        if (targetId === '#') return;
-        
-        const target = document.querySelector(targetId);
-        if (target) {
-            window.scrollTo({
-                top: target.offsetTop - 100,
-                behavior: 'smooth'
-            });
+    
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        if (event.target == document.getElementById('rejectModal')) {
+            document.getElementById('rejectModal').style.display = 'none';
         }
-    });
-});
+    }
 </script>
 
 </body>

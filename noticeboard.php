@@ -20,33 +20,6 @@ $notices_query = "
 ";
 $notices = $conn->query($notices_query);
 
-// Get voting session info - FIXED: Check if query returns results
-$session_result = $conn->query("SELECT * FROM voting_session WHERE id=1");
-$session = $session_result ? $session_result->fetch_assoc() : null;
-
-// Get recent results if published
-$results_by_position = [];
-if ($session && isset($session['results_published']) && $session['results_published']) {
-    $results = $conn->query("
-        SELECT c.position, c.name as candidate_name, c.party, 
-               COUNT(v.id) as vote_count,
-               ROUND((COUNT(v.id) * 100.0 / (SELECT COUNT(*) FROM votes WHERE position = c.position)), 2) as percentage
-        FROM candidates c 
-        LEFT JOIN votes v ON c.id = v.candidate_id
-        WHERE v.id IS NOT NULL
-        GROUP BY c.position, c.id
-        ORDER BY c.position, vote_count DESC
-    ");
-    if ($results) {
-        while($row = $results->fetch_assoc()) {
-            $position = $row['position'];
-            if (!isset($results_by_position[$position])) {
-                $results_by_position[$position] = [];
-            }
-            $results_by_position[$position][] = $row;
-        }
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -55,21 +28,23 @@ if ($session && isset($session['results_published']) && $session['results_publis
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Notice Board - Online Voting System</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', sans-serif;
         }
 
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: #333;
+            background-attachment: fixed;
         }
 
-        /* Header */
+         /* Header Styles */
         header {
             width: 100%;
             background: rgba(255, 255, 255, 0.98);
@@ -142,108 +117,80 @@ if ($session && isset($session['results_published']) && $session['results_publis
             color: white;
         }
 
-        /* Hero Section */
-        .hero {
-            margin-top: 80px;
-            padding: 60px 40px;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%);
-            text-align: center;
-            color: white;
-        }
-
-        .hero h1 {
-            font-size: 48px;
-            margin-bottom: 20px;
-            line-height: 1.2;
-        }
-
-        .hero p {
-            font-size: 18px;
-            line-height: 1.8;
-            max-width: 800px;
-            margin: 0 auto 30px;
-        }
-
         /* Main Container */
         .main-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 40px;
+            max-width: 900px;
+            margin: 100px auto 40px;
+            padding: 0 20px;
         }
 
-        /* Filter Tabs */
-        .filter-tabs {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin: 40px 0;
-            flex-wrap: wrap;
-        }
-
-        .filter-tab {
-            padding: 12px 25px;
-            background: #f8f9fa;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .filter-tab.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-
-        .filter-tab:hover:not(.active) {
-            background: #e4e6e9;
-        }
-
-        /* Section Titles */
-        .section-title {
+        .page-title {
             text-align: center;
-            font-size: 36px;
-            margin-bottom: 50px;
+            font-size: 32px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 30px;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .notices-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .notice-item {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-left: 5px solid #667eea;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .notice-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .notice-item-header h2 {
+            font-size: 20px;
+            font-weight: 600;
             color: #333;
         }
 
-        /* Notices Grid */
-        .notices-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 30px;
-            margin-bottom: 60px;
+        .notice-item-date {
+            font-size: 13px;
+            color: #666;
+            font-weight: 500;
         }
 
-        .notice-card {
-            background: white;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
+        .notice-item-body p {
+            font-size: 15px;
+            line-height: 1.7;
+            color: #555;
         }
 
-        .notice-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 12px 30px rgba(102, 126, 234, 0.3);
+        .notice-item-footer {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #f0f0f0;
         }
 
-        .notice-header {
-            padding: 25px 25px 15px;
-            position: relative;
-        }
-
-        .notice-badge {
-            position: absolute;
-            top: 20px;
-            right: 25px;
-            padding: 6px 15px;
+        .badge {
+            padding: 5px 12px;
             border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
+            font-size: 11px;
+            font-weight: 600;
             text-transform: uppercase;
         }
 
@@ -253,164 +200,13 @@ if ($session && isset($session['results_published']) && $session['results_publis
         .badge-announcement { background: #f3e5f5; color: #7b1fa2; }
         .badge-urgent { background: #ffebee; color: #d32f2f; }
 
-        .priority-tag {
-            display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 15px;
-        }
-
-        .priority-urgent { background: linear-gradient(135deg, #ff5252 0%, #ff1744 100%); color: white; }
-        .priority-high { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; }
-        .priority-medium { background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); color: white; }
-        .priority-low { background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); color: white; }
-
-        .notice-card h3 {
-            font-size: 22px;
-            margin-bottom: 15px;
-            color: #333;
-            line-height: 1.4;
-        }
-
-        .notice-body {
-            padding: 0 25px 25px;
-        }
-
-        .notice-content {
-            color: #666;
-            line-height: 1.6;
-            margin-bottom: 20px;
-        }
-
-        .notice-footer {
-            padding: 20px 25px;
-            background: #f8f9fa;
-            border-top: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .notice-meta {
-            display: flex;
-            gap: 20px;
-            font-size: 14px;
-            color: #666;
-        }
-
-        .notice-meta i {
-            margin-right: 5px;
-            color: #667eea;
-        }
-
-        /* Results Section */
-        .results-section {
-            background: white;
-            border-radius: 16px;
-            padding: 40px;
-            margin-bottom: 60px;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .results-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 30px;
-        }
-
-        .position-results {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 12px;
-        }
-
-        .position-title {
-            font-size: 22px;
-            color: #333;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #667eea;
-        }
-
-        .result-item {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
-        }
-
-        .candidate-rank {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            margin-right: 20px;
-            flex-shrink: 0;
-        }
-
-        .candidate-info {
-            flex: 1;
-        }
-
-        .candidate-name {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 5px;
-        }
-
-        .candidate-party {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .vote-stats {
-            text-align: right;
-        }
-
-        .vote-count {
-            font-size: 20px;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 5px;
-        }
-
-        .vote-percentage {
-            font-size: 14px;
-            color: #666;
-        }
-
-        .progress-bar {
-            width: 150px;
-            height: 8px;
-            background: #e0e0e0;
-            border-radius: 4px;
-            margin-top: 10px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 4px;
-        }
-
         /* Empty State */
         .empty-state {
             text-align: center;
             padding: 60px 40px;
             background: white;
             border-radius: 16px;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
             margin: 40px 0;
         }
 
@@ -433,7 +229,7 @@ if ($session && isset($session['results_published']) && $session['results_publis
             margin: 0 auto;
         }
 
-        /* Footer */
+       /* Footer */
         footer {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -466,76 +262,11 @@ if ($session && isset($session['results_published']) && $session['results_publis
             text-decoration: underline;
         }
 
-        .social-links {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin: 20px 0;
-        }
-
-        .social-links a {
-            width: 40px;
-            height: 40px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 18px;
-            transition: 0.3s;
-        }
-
-        .social-links a:hover {
-            background: white;
-            color: #667eea;
-        }
-
         /* Responsive Design */
         @media (max-width: 768px) {
             .header-container {
                 padding: 15px 20px;
             }
-
-            .hero {
-                padding: 40px 20px;
-            }
-
-            .hero h1 {
-                font-size: 32px;
-            }
-
-            .hero p {
-                font-size: 16px;
-            }
-
-            .main-container {
-                padding: 20px;
-            }
-
-            .notices-grid {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-
-            .results-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .filter-tabs {
-                justify-content: center;
-                gap: 10px;
-            }
-
-            .filter-tab {
-                padding: 10px 20px;
-                font-size: 14px;
-            }
-
-            .section-title {
-                font-size: 28px;
-            }
-
             .footer-links {
                 flex-direction: column;
                 gap: 15px;
@@ -546,30 +277,8 @@ if ($session && isset($session['results_published']) && $session['results_publis
             .logo-text {
                 font-size: 18px;
             }
-
-            .hero h1 {
-                font-size: 26px;
-            }
-
-            .result-item {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .candidate-rank {
-                margin-bottom: 10px;
-            }
-
-            .vote-stats {
-                width: 100%;
-                text-align: left;
-                margin-top: 10px;
-            }
-
-            .progress-bar {
-                width: 100%;
-            }
         }
+
     </style>
 </head>
 <body>
@@ -584,121 +293,36 @@ if ($session && isset($session['results_published']) && $session['results_publis
             </div>
             
             <nav id="mainNav">
-                <a href="firstpage.php">Home</a>
-                <a href="login.html">Login</a>
-                <a href="studentRegistration.html">Register</a>
-                <a href="noticeboard.php" class="active">Notice Board</a>
-                <a href="help.html">Help</a>
+                 <a href="firstpage.php">Home</a>
+                 <a href="login.html">Login</a>
+                 <a href="result.php">Result</a>
+                 <a href="about.html">About Us</a>
+                 <a href="noticeboard.php" class="active">Notice Board</a>
             </nav>
         </div>
     </header>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <h1>Notice Board & Announcements</h1>
-        <p>
-            Stay informed with the latest election updates, important notices, and official results. 
-            All campus election information in one place, updated in real-time.
-        </p>
-        <div class="filter-tabs">
-            <button class="filter-tab active" onclick="filterNotices('all')">All Notices</button>
-            <button class="filter-tab" onclick="filterNotices('election')">Election Updates</button>
-            <button class="filter-tab" onclick="filterNotices('result')">Results</button>
-        </div>
-    </section>
-
     <!-- Main Container -->
     <div class="main-container">
-        <!-- Results Section -->
-        <?php if ($session && isset($session['results_published']) && $session['results_published'] && !empty($results_by_position)): ?>
-        <section class="results-section">
-            <h2 class="section-title">Election Results 2025</h2>
-            
-            <div class="results-grid">
-                <?php foreach ($results_by_position as $position => $position_results): ?>
-                <div class="position-results">
-                    <h3 class="position-title"><?php echo htmlspecialchars($position); ?></h3>
-                    
-                    <?php $rank = 1; ?>
-                    <?php foreach ($position_results as $result): ?>
-                    <div class="result-item">
-                        <div class="candidate-rank"><?php echo $rank++; ?></div>
-                        <div class="candidate-info">
-                            <div class="candidate-name"><?php echo htmlspecialchars($result['candidate_name']); ?></div>
-                            <div class="candidate-party"><?php echo htmlspecialchars($result['party']); ?></div>
-                        </div>
-                        <div class="vote-stats">
-                            <div class="vote-count"><?php echo $result['vote_count']; ?> votes</div>
-                            <div class="vote-percentage"><?php echo $result['percentage']; ?>%</div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: <?php echo $result['percentage']; ?>%"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </section>
-        <?php elseif ($session && isset($session['results_published']) && $session['results_published']): ?>
-        <section class="results-section">
-            <div class="empty-state">
-                <div class="empty-icon">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <h3>No Results Published Yet</h3>
-                <p>Election results will be displayed here once they are available. Please check back later.</p>
-            </div>
-        </section>
-        <?php else: ?>
-        <section class="results-section">
-            <div class="empty-state">
-                <div class="empty-icon">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <h3>Results Not Published</h3>
-                <p>The election results are not yet published. Results will appear here once the election committee publishes them.</p>
-            </div>
-        </section>
-        <?php endif; ?>
-
-        <!-- Notices Section -->
-        <h2 class="section-title">Latest Notices & Announcements</h2>
+        <h1 class="page-title">Notice Board</h1>
         
         <?php if ($notices && $notices->num_rows > 0): ?>
-        <div class="notices-grid" id="noticesContainer">
+        <div class="notices-list">
             <?php while($notice = $notices->fetch_assoc()): 
                 $category = strtolower($notice['category']);
-                $priority = strtolower($notice['priority']);
-                $published_date = date('M d, Y - h:i A', strtotime($notice['published_at']));
+                $published_date = date('F d, Y', strtotime($notice['published_at']));
             ?>
-            <div class="notice-card" data-category="<?php echo $category; ?>">
-                <div class="notice-header">
-                    <span class="priority-tag priority-<?php echo $priority; ?>">
-                        <?php echo $notice['priority']; ?>
-                    </span>
-                    <span class="notice-badge badge-<?php echo $category; ?>">
-                        <?php echo $notice['category']; ?>
-                    </span>
-                    <h3><?php echo htmlspecialchars($notice['title']); ?></h3>
+            <div class="notice-item">
+                <div class="notice-item-header">
+                    <h2><?php echo htmlspecialchars($notice['title']); ?></h2>
+                    <span class="notice-item-date"><?php echo $published_date; ?></span>
                 </div>
-                
-                <div class="notice-body">
-                    <div class="notice-content">
-                        <?php echo nl2br(htmlspecialchars(substr($notice['content'], 0, 150))); ?>
-                        <?php if (strlen($notice['content']) > 150): ?>
-                        ... <a href="#" class="read-more" onclick="toggleReadMore(this)">Read More</a>
-                        <span style="display: none;"><?php echo nl2br(htmlspecialchars(substr($notice['content'], 150))); ?></span>
-                        <?php endif; ?>
-                    </div>
+                <div class="notice-item-body">
+                    <p><?php echo nl2br(htmlspecialchars($notice['content'])); ?></p>
                 </div>
-                
-                <div class="notice-footer">
+                <div class="notice-item-footer">
                     <div class="notice-meta">
-                        <span><i class="far fa-calendar"></i> <?php echo $published_date; ?></span>
-                        <?php if ($notice['author_name']): ?>
-                        <span><i class="fas fa-user"></i> <?php echo htmlspecialchars($notice['author_name']); ?></span>
-                        <?php endif; ?>
+                        <span class="badge badge-<?php echo $category; ?>"><?php echo htmlspecialchars($notice['category']); ?></span>
                     </div>
                 </div>
             </div>
@@ -707,7 +331,7 @@ if ($session && isset($session['results_published']) && $session['results_publis
         <?php else: ?>
         <div class="empty-state">
             <div class="empty-icon">
-                <i class="fas fa-newspaper"></i>
+                <i class="far fa-newspaper"></i>
             </div>
             <h3>No Notices Available</h3>
             <p>There are currently no notices or announcements. Please check back later for updates.</p>
@@ -722,100 +346,15 @@ if ($session && isset($session['results_published']) && $session['results_publis
             <div class="footer-links">
                 <a href="firstpage.php">Home</a>
                 <a href="login.html">Login</a>
-                <a href="studentRegistration.html">Register</a>
-                <a href="noticeboard.php">Notice Board</a>
+                <a href="result.php">Results</a>
                 <a href="help.html">Help</a>
             </div>
             
             <p style="margin-top: 20px; opacity: 0.9;">
-                &copy; <?php echo date('Y'); ?> Online Voting System. All rights reserved.
+                &copy; <?php echo date('Y'); ?> Voting System. All rights reserved.
             </p>
         </div>
     </footer>
 
-    <script>
-        // Filter notices by category
-        function filterNotices(category) {
-            // Update active tab
-            document.querySelectorAll('.filter-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            // Filter notices
-            const notices = document.querySelectorAll('.notice-card');
-            notices.forEach(notice => {
-                if (category === 'all' || notice.dataset.category === category) {
-                    notice.style.display = 'block';
-                } else {
-                    notice.style.display = 'none';
-                }
-            });
-            
-            // Show empty state if no notices
-            const visibleNotices = Array.from(notices).filter(n => n.style.display !== 'none');
-            const noticesContainer = document.getElementById('noticesContainer');
-            
-            if (visibleNotices.length === 0 && noticesContainer) {
-                const existingEmptyMsg = noticesContainer.nextElementSibling;
-                if (!existingEmptyMsg || !existingEmptyMsg.classList.contains('empty-state')) {
-                    const emptyMsg = document.createElement('div');
-                    emptyMsg.className = 'empty-state';
-                    emptyMsg.innerHTML = `
-                        <div class="empty-icon">
-                            <i class="fas fa-inbox"></i>
-                        </div>
-                        <h3>No ${category.charAt(0).toUpperCase() + category.slice(1)} Notices</h3>
-                        <p>There are no notices in this category at the moment.</p>
-                    `;
-                    noticesContainer.parentNode.insertBefore(emptyMsg, noticesContainer);
-                }
-                noticesContainer.style.display = 'none';
-            } else {
-                const existingEmptyMsg = noticesContainer.nextElementSibling;
-                if (existingEmptyMsg && existingEmptyMsg.classList.contains('empty-state')) {
-                    existingEmptyMsg.remove();
-                }
-                noticesContainer.style.display = 'grid';
-            }
-        }
-        
-        // Toggle read more/less
-        function toggleReadMore(link) {
-            const contentDiv = link.parentNode;
-            const hiddenText = link.nextElementSibling;
-            const currentText = contentDiv.firstChild.textContent;
-            
-            if (link.textContent === 'Read More') {
-                contentDiv.innerHTML = currentText + hiddenText.textContent + 
-                    ' <a href="#" class="read-more" onclick="toggleReadMore(this)">Read Less</a>';
-            } else {
-                contentDiv.innerHTML = currentText.substring(0, 150) + '... ' + 
-                    '<a href="#" class="read-more" onclick="toggleReadMore(this)">Read More</a>' +
-                    '<span style="display: none;">' + currentText.substring(150) + '</span>';
-            }
-            
-            return false;
-        }
-        
-        // Auto-refresh every 30 seconds
-        setInterval(() => {
-            window.location.reload();
-        }, 30000);
-        
-        // Smooth scroll for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
-    </script>
 </body>
 </html>
