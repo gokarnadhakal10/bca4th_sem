@@ -3,10 +3,6 @@ require 'config.php';
 require 'auth.php';
 admin_required();
 
-// Get voting session status
-$session = $conn->query("SELECT * FROM voting_session WHERE id=1")->fetch_assoc();
-$can_publish = ($session && isset($session['status']) && $session['status'] === 'Ended');
-
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_notice'])) {
@@ -52,22 +48,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn->query("DELETE FROM notices WHERE id=$id");
         $success = "Notice deleted successfully!";
     }
-    
-    if (isset($_POST['publish_results'])) {
-        if ($can_publish) {
-            $conn->query("UPDATE voting_session SET results_published=TRUE WHERE id=1");
-            $success = "Results published to noticeboard!";
+
+    if (isset($_POST['toggle_status'])) {
+        $id = intval($_POST['id']);
+        $current_status = intval($_POST['current_status']);
+        $new_status = $current_status ? 0 : 1; // Toggle 1 to 0 and 0 to 1
+
+        $stmt = $conn->prepare("UPDATE notices SET is_active=? WHERE id=?");
+        $stmt->bind_param("ii", $new_status, $id);
+        
+        if ($stmt->execute()) {
+            $success = "Notice status updated successfully!";
         } else {
-            $error = "Results can only be published after the voting session has ended.";
+            $error = "Failed to update notice status: " . $conn->error;
         }
+        $stmt->close();
     }
-    
-    if (isset($_POST['unpublish_results'])) {
-        $conn->query("UPDATE voting_session SET results_published=FALSE WHERE id=1");
-        $success = "Results unpublished from noticeboard!";
-    }
-    // Re-fetch session data after update
-    $session = $conn->query("SELECT * FROM voting_session WHERE id=1")->fetch_assoc();
 }
 
 // Handle edit request
@@ -314,7 +310,6 @@ $notices = $conn->query("SELECT n.*, u.name as author_name FROM notices n LEFT J
             <div class="tabs">
                 <button class="tab <?php echo $active_tab == 'manage' ? 'active' : ''; ?>" onclick="switchTab('manage')"><i class="fas fa-list"></i> Manage Notices</button>
                 <button class="tab <?php echo $active_tab == 'add' ? 'active' : ''; ?>" onclick="switchTab('add')"><i class="fas fa-plus-circle"></i> <?php echo $edit_notice ? 'Edit Notice' : 'Add New Notice'; ?></button>
-                <button class="tab <?php echo $active_tab == 'results' ? 'active' : ''; ?>" onclick="switchTab('results')"><i class="fas fa-toggle-on"></i> Results Control</button>
             </div>
             
             <!-- Manage Notices Tab -->
@@ -351,10 +346,26 @@ $notices = $conn->query("SELECT n.*, u.name as author_name FROM notices n LEFT J
                                 </td>
                                 <td>
                                     <div style="display: flex; gap: 5px;">
-                                        <a href="?edit=<?php echo $notice['id']; ?>" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;"><i class="fas fa-edit"></i></a>
+                                        <a href="?edit=<?php echo $notice['id']; ?>" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;" title="Edit Notice"><i class="fas fa-edit"></i></a>
+                                        
+                                        <!-- Toggle Publish Status Button -->
                                         <form method="POST" style="display: inline;">
                                             <input type="hidden" name="id" value="<?php echo $notice['id']; ?>">
-                                            <button type="submit" name="delete_notice" class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="return confirm('Are you sure you want to delete this notice?')">
+                                            <input type="hidden" name="current_status" value="<?php echo $notice['is_active']; ?>">
+                                            <?php if($notice['is_active']): ?>
+                                                <button type="submit" name="toggle_status" class="btn btn-warning" style="padding: 6px 12px; font-size: 12px;" title="Unpublish Notice">
+                                                    <i class="fas fa-eye-slash"></i>
+                                                </button>
+                                            <?php else: ?>
+                                                <button type="submit" name="toggle_status" class="btn btn-success" style="padding: 6px 12px; font-size: 12px;" title="Publish Notice">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            <?php endif; ?>
+                                        </form>
+
+                                        <form method="POST" style="display: inline;">
+                                            <input type="hidden" name="id" value="<?php echo $notice['id']; ?>">
+                                            <button type="submit" name="delete_notice" class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="return confirm('Are you sure you want to delete this notice?')" title="Delete Notice">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </form>
@@ -430,75 +441,6 @@ $notices = $conn->query("SELECT n.*, u.name as author_name FROM notices n LEFT J
                 </form>
             </div>
             
-            <!-- Results Control Tab -->
-            <div id="results-tab" class="tab-content <?php echo $active_tab == 'results' ? 'active' : ''; ?>">
-                <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; border-left: 5px solid var(--primary); margin-bottom: 30px;">
-                    <h3 style="margin-bottom: 10px; color: var(--dark);">Results Publication Status</h3>
-                    <p style="margin-bottom: 20px;">
-                        Current Status: 
-                        <strong style="color: <?php echo $session['results_published'] ? '#2ecc71' : '#e74c3c'; ?>; font-size: 18px;">
-                            <?php echo $session['results_published'] ? 'PUBLISHED' : 'NOT PUBLISHED'; ?>
-                        </strong>
-                    </p>
-                    <p style="color: #666; margin-bottom: 20px;">When results are published, they will be visible to all users on the public noticeboard and result page.</p>
-                    
-                    <form method="POST">
-                        <?php if($session['results_published']): ?>
-                            <button type="submit" name="unpublish_results" class="btn btn-danger">
-                                <i class="fas fa-eye-slash"></i> Unpublish Results
-                            </button>
-                        <?php else: ?>
-                            <?php if ($can_publish): ?>
-                                <button type="submit" name="publish_results" class="btn btn-success">
-                                    <i class="fas fa-eye"></i> Publish Results
-                                </button>
-                            <?php else: ?>
-                                <button type="button" class="btn btn-success" disabled title="Results can only be published after the voting session has ended." style="cursor: not-allowed; background-color: #bdc3c7; border-color: #bdc3c7;"><i class="fas fa-eye"></i> Publish Results</button>
-                            <?php endif; ?>
-                        <?php endif; ?>
-                    </form>
-                </div>
-                
-                <h3 style="margin-bottom: 15px; color: var(--dark);">Preview of Results</h3>
-                <div class="table-responsive">
-                    <?php
-                    $preview_results = $conn->query("
-                        SELECT c.position, c.name as candidate_name, c.party_name AS party, 
-                            COUNT(v.id) as vote_count
-                        FROM candidates c 
-                        LEFT JOIN votes v ON c.id = v.candidate_id
-                        WHERE v.id IS NOT NULL
-                        GROUP BY c.position, c.id
-                        ORDER BY c.position, vote_count DESC
-                        LIMIT 5
-                    ");
-                    
-                    if ($preview_results->num_rows > 0): ?>
-                        <table class="notice-table">
-                            <thead>
-                                <tr>
-                                    <th>Position</th>
-                                    <th>Candidate</th>
-                                    <th>Party</th>
-                                    <th>Votes</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php while($row = $preview_results->fetch_assoc()): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($row['position']); ?></td>
-                                    <td><?php echo htmlspecialchars($row['candidate_name']); ?></td>
-                                    <td><?php echo htmlspecialchars($row['party']); ?></td>
-                                    <td><strong><?php echo $row['vote_count']; ?></strong></td>
-                                </tr>
-                                <?php endwhile; ?>
-                            </tbody>
-                        </table>
-                    <?php else: ?>
-                        <p style="color: #666; font-style: italic; padding: 20px; text-align: center; background: #f8f9fa; border-radius: 8px;">No voting data available yet.</p>
-                    <?php endif; ?>
-                </div>
-            </div>
         </div>
     </div>
     

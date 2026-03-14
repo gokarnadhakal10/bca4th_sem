@@ -5,25 +5,15 @@ admin_required();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-    $start_time = date('Y-m-d H:i:s', strtotime($_POST['start']));
+    $start_time_from_form = date('Y-m-d H:i:s', strtotime($_POST['start']));
     $end_time = date('Y-m-d H:i:s', strtotime($_POST['end']));
+    $current_time = date('Y-m-d H:i:s');
     
     // --- Server-side Validation ---
     
     // 1. Validate End Time > Start Time
-    if (strtotime($end_time) <= strtotime($start_time)) {
+    if (strtotime($end_time) <= strtotime($start_time_from_form)) {
         $_SESSION['error'] = "End time must be after the start time.";
-        header("Location: AdminDashboard.php");
-        exit();
-    }
-
-    // Fetch current status to determine if we should enforce "future start date"
-    $current_session_query = $conn->query("SELECT status FROM nomination_session WHERE id=1");
-    $current_status = ($current_session_query->num_rows > 0) ? $current_session_query->fetch_assoc()['status'] : 'Pending';
-
-    // 2. Validate Start Time not in past (only for new sessions, allow 1 min buffer)
-    if (!in_array($current_status, ['Active', 'Paused']) && strtotime($start_time) < (time() - 60)) {
-        $_SESSION['error'] = "Start time cannot be in the past.";
         header("Location: AdminDashboard.php");
         exit();
     }
@@ -37,10 +27,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
+    $start_time = $start_time_from_form; // By default, use the time from the form.
     $status = 'Pending';
     switch($action) {
         case 'start':
             $status = 'Active';
+            // When an admin manually starts a session, the effective start time is NOW.
+            // This prevents issues where the admin is a few minutes late to click the button.
+            $start_time = $current_time;
             break;
         case 'pause':
             $status = 'Paused';

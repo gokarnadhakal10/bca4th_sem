@@ -43,18 +43,45 @@ $nomination_session = ($nomination_session_result && $nomination_session_result-
     'status' => 'Pending'
 ];
 
+// ===== AUTO-END SESSIONS ON PAGE LOAD =====
+$current_time_for_auto_end = date('Y-m-d H:i:s');
+
+// Auto-end voting session if time is up
+if (isset($vote_session['status']) && in_array($vote_session['status'], ['Active', 'Paused'])) {
+    if (strtotime($vote_session['end_time']) < strtotime($current_time_for_auto_end)) {
+        $conn->query("UPDATE voting_session SET status = 'Ended' WHERE id = 1");
+        $vote_session['status'] = 'Ended'; // Update variable for current page load
+    }
+}
+
+// Auto-end nomination session if time is up
+if (isset($nomination_session['status']) && in_array($nomination_session['status'], ['Active', 'Paused'])) {
+    if (strtotime($nomination_session['end_time']) < strtotime($current_time_for_auto_end)) {
+        $conn->query("UPDATE nomination_session SET status = 'Ended' WHERE id = 1");
+        $nomination_session['status'] = 'Ended'; // Update variable for current page load
+    }
+}
+
 // Determine session start constraints
 $nomination_status = $nomination_session['status'] ?? 'Pending';
 $voting_status = $vote_session['status'] ?? 'Pending';
 
-// Voting can only start if nomination is NOT active or paused.
-$can_start_voting_session = !in_array($nomination_status, ['Active', 'Paused']);
-
-// Nomination can only start if voting is NOT active or paused.
-$can_start_nomination_session = !in_array($voting_status, ['Active', 'Paused']);
+// Check if sessions are currently running (Active or Paused)
+$is_nomination_running = in_array($nomination_status, ['Active', 'Paused']);
+$is_voting_running = in_array($voting_status, ['Active', 'Paused']);
 
 // Current date for input validation
 $current_date_min = date('Y-m-d\TH:i');
+
+// Fetch latest notices
+$current_date = date('Y-m-d H:i:s');
+$notices_query = $conn->query("SELECT * FROM notices WHERE is_active = 1 AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY published_at DESC LIMIT 3");
+$notices = [];
+if ($notices_query) {
+    while ($notice = $notices_query->fetch_assoc()) {
+        $notices[] = $notice;
+    }
+}
 
 
 // Fetch candidates - Updated to match your table structure
@@ -219,6 +246,53 @@ $requests = $conn->query("SELECT r.*, u.name AS voter_name
     }
 
     .section-title { font-size: 18px; font-weight: 600; color: var(--dark); display: flex; align-items: center; gap: 10px; }
+
+    /* Notices */
+    .notices-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 15px;
+    }
+    .notice-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 15px;
+        background: #fafafa;
+        transition: all 0.3s ease;
+    }
+    .notice-card:hover {
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    .notice-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .notice-category {
+        background: #e3f2fd;
+        color: #1976d2;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .notice-date {
+        font-size: 12px;
+        color: #666;
+    }
+    .notice-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    .notice-content {
+        font-size: 14px;
+        color: #666;
+        line-height: 1.4;
+    }
 
     /* Grid for Session Controls */
     .session-grid {
@@ -428,12 +502,34 @@ $requests = $conn->query("SELECT r.*, u.name AS voter_name
         </div>
     </div>
 
+    <!-- Notices Section -->
+    <?php if(!empty($notices)): ?>
+    <div class="dashboard-section">
+        <div class="section-header">
+            <div class="section-title"><i class="fas fa-bullhorn"></i> Latest Notices</div>
+            <a href="admin_notices.php" class="btn btn-purple">Manage Notices</a>
+        </div>
+        <div class="notices-grid">
+            <?php foreach($notices as $notice): ?>
+            <div class="notice-card">
+                <div class="notice-header">
+                    <span class="notice-category"><?php echo htmlspecialchars($notice['category']); ?></span>
+                    <span class="notice-date"><?php echo date('M d, Y', strtotime($notice['published_at'])); ?></span>
+                </div>
+                <h4 class="notice-title"><?php echo htmlspecialchars($notice['title']); ?></h4>
+                <p class="notice-content"><?php echo htmlspecialchars(substr($notice['content'], 0, 100)) . (strlen($notice['content']) > 100 ? '...' : ''); ?></p>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <div class="session-grid">
         <!-- Voting Session Control -->
         <div class="dashboard-section">
             <div class="section-header">
                 <div class="section-title"><i class="fas fa-clock"></i> Voting Session</div>
-                <span class="btn btn-info" style="padding: 5px 10px; font-size: 12px;">
+                <span id="voting-status-badge" class="btn btn-info" style="padding: 5px 10px; font-size: 12px;">
                     <?= $vote_session['status'] ?? 'Pending' ?>
                 </span>
             </div>
@@ -447,14 +543,17 @@ $requests = $conn->query("SELECT r.*, u.name AS voter_name
                     <input type="datetime-local" name="end" class="form-control" value="<?= date('Y-m-d\TH:i',strtotime($vote_session['end_time'])) ?>" required>
                 </div>
                 <div class="form-group" style="display: flex; gap: 5px; flex-wrap: wrap;">
-                    <?php if ($can_start_voting_session): ?>
+                    <?php if (!$is_nomination_running): ?>
                         <button type="submit" name="action" value="start" class="btn btn-success" style="flex: 1;"><i class="fas fa-play"></i> Start</button>
+                        <button type="submit" name="action" value="pause" class="btn btn-warning" style="flex: 1;"><i class="fas fa-pause"></i> Pause</button>
+                        <button type="submit" name="action" value="resume" class="btn btn-info" style="flex: 1;"><i class="fas fa-redo"></i> Resume</button>
+                        <button type="submit" name="action" value="end" class="btn btn-danger" style="flex: 1;"><i class="fas fa-stop"></i> End</button>
                     <?php else: ?>
-                        <button type="button" class="btn btn-success disabled" style="flex: 1;" title="End the nomination session before starting to vote." onclick="alert('End the nomination session before starting the voting session.');"><i class="fas fa-play"></i> Start</button>
+                        <button type="button" class="btn btn-success disabled" style="flex: 1;" title="Nomination is active" disabled><i class="fas fa-play"></i> Start</button>
+                        <button type="button" class="btn btn-warning disabled" style="flex: 1;" title="Nomination is active" disabled><i class="fas fa-pause"></i> Pause</button>
+                        <button type="button" class="btn btn-info disabled" style="flex: 1;" title="Nomination is active" disabled><i class="fas fa-redo"></i> Resume</button>
+                        <button type="button" class="btn btn-danger disabled" style="flex: 1;" title="Nomination is active" disabled><i class="fas fa-stop"></i> End</button>
                     <?php endif; ?>
-                    <button type="submit" name="action" value="pause" class="btn btn-warning" style="flex: 1;"><i class="fas fa-pause"></i> Pause</button>
-                    <button type="submit" name="action" value="resume" class="btn btn-info" style="flex: 1;"><i class="fas fa-redo"></i> Resume</button>
-                    <button type="submit" name="action" value="end" class="btn btn-danger" style="flex: 1;"><i class="fas fa-stop"></i> End</button>
                 </div>
             </form>
         </div>
@@ -463,7 +562,7 @@ $requests = $conn->query("SELECT r.*, u.name AS voter_name
         <div class="dashboard-section">
             <div class="section-header">
                 <div class="section-title"><i class="fas fa-calendar-alt"></i> Nomination Period</div>
-                <span class="btn btn-info" style="padding: 5px 10px; font-size: 12px;">
+                <span id="nomination-status-badge" class="btn btn-info" style="padding: 5px 10px; font-size: 12px;">
                     <?= $nomination_session['status'] ?? 'Pending' ?>
                 </span>
             </div>
@@ -477,14 +576,17 @@ $requests = $conn->query("SELECT r.*, u.name AS voter_name
                     <input type="datetime-local" name="end" class="form-control" value="<?= date('Y-m-d\TH:i',strtotime($nomination_session['end_time'])) ?>" required>
                 </div>
                 <div class="form-group" style="display: flex; gap: 5px; flex-wrap: wrap;">
-                    <?php if ($can_start_nomination_session): ?>
+                    <?php if (!$is_voting_running): ?>
                         <button type="submit" name="action" value="start" class="btn btn-success" style="flex: 1;"><i class="fas fa-play"></i> Start</button>
+                        <button type="submit" name="action" value="pause" class="btn btn-warning" style="flex: 1;"><i class="fas fa-pause"></i> Pause</button>
+                        <button type="submit" name="action" value="resume" class="btn btn-info" style="flex: 1;"><i class="fas fa-redo"></i> Resume</button>
+                        <button type="submit" name="action" value="end" class="btn btn-danger" style="flex: 1;"><i class="fas fa-stop"></i> End</button>
                     <?php else: ?>
-                        <button type="button" class="btn btn-success disabled" style="flex: 1;" title="End the voting session before starting the nomination session." onclick="alert('End the voting session before starting the nomination session.');"><i class="fas fa-play"></i> Start</button>
+                        <button type="button" class="btn btn-success disabled" style="flex: 1;" title="Voting is active" disabled><i class="fas fa-play"></i> Start</button>
+                        <button type="button" class="btn btn-warning disabled" style="flex: 1;" title="Voting is active" disabled><i class="fas fa-pause"></i> Pause</button>
+                        <button type="button" class="btn btn-info disabled" style="flex: 1;" title="Voting is active" disabled><i class="fas fa-redo"></i> Resume</button>
+                        <button type="button" class="btn btn-danger disabled" style="flex: 1;" title="Voting is active" disabled><i class="fas fa-stop"></i> End</button>
                     <?php endif; ?>
-                    <button type="submit" name="action" value="pause" class="btn btn-warning" style="flex: 1;"><i class="fas fa-pause"></i> Pause</button>
-                    <button type="submit" name="action" value="resume" class="btn btn-info" style="flex: 1;"><i class="fas fa-redo"></i> Resume</button>
-                    <button type="submit" name="action" value="end" class="btn btn-danger" style="flex: 1;"><i class="fas fa-stop"></i> End</button>
                 </div>
             </form>
         </div>
@@ -649,7 +751,7 @@ $requests = $conn->query("SELECT r.*, u.name AS voter_name
             <div class="action-card">
                 <div class="action-icon" style="background: #f72585;"><i class="fas fa-poll"></i></div>
                 <h4>Results Control</h4>
-                <a href="admin_notices.php?tab=results" class="btn btn-warning">Publish Results</a>
+                <a href="admin_result.php" class="btn btn-warning">Publish Results</a>
             </div>
             <div class="action-card">
                 <div class="action-icon" style="background: #4cc9f0;"><i class="fas fa-image"></i></div>
@@ -693,6 +795,45 @@ $requests = $conn->query("SELECT r.*, u.name AS voter_name
             document.getElementById('rejectModal').style.display = 'none';
         }
     }
+
+    // AJAX to check session status
+    let currentVotingStatus = "<?= $vote_session['status'] ?? 'Pending' ?>";
+    let currentNominationStatus = "<?= $nomination_session['status'] ?? 'Pending' ?>";
+
+    function checkSessionStatus() {
+        fetch('check_session_status.php')
+            .then(response => response.json())
+            .then(data => {
+                const newVotingStatus = data.voting ? data.voting.status : 'Pending';
+                const newNominationStatus = data.nomination ? data.nomination.status : 'Pending';
+
+                // Update Badges Text
+                const voteBadge = document.getElementById('voting-status-badge');
+                const nomBadge = document.getElementById('nomination-status-badge');
+                
+                if(voteBadge) voteBadge.textContent = newVotingStatus;
+                if(nomBadge) nomBadge.textContent = newNominationStatus;
+
+                // Check for status changes to trigger reload
+                let needsReload = false;
+
+                if (newVotingStatus !== currentVotingStatus) {
+                    needsReload = true;
+                }
+                if (newNominationStatus !== currentNominationStatus) {
+                    needsReload = true;
+                }
+
+                if (needsReload) {
+                    // Reload the page to update button states (Enable/Disable logic)
+                    window.location.reload();
+                }
+            })
+            .catch(error => console.error('Error checking session status:', error));
+    }
+
+    // Check every 3 seconds
+    setInterval(checkSessionStatus, 3000);
 </script>
 
 </body>
