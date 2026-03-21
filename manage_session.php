@@ -5,13 +5,38 @@ admin_required();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-    $start_time = date('Y-m-d H:i:s', strtotime($_POST['start']));
+    $start_time_from_form = date('Y-m-d H:i:s', strtotime($_POST['start']));
     $end_time = date('Y-m-d H:i:s', strtotime($_POST['end']));
     $current_time = date('Y-m-d H:i:s');
+
+    // --- Server-side Validation ---
+    // 1. Validate End Time > Start Time
+    if (strtotime($end_time) <= strtotime($start_time_from_form)) {
+        $_SESSION['error'] = "End time must be after the start time.";
+        header("Location: AdminDashboard.php");
+        exit();
+    }
+
+    // Prevent Session Overlap (Voting cannot start if Nomination is Active/Paused)
+    $nom_status_query = $conn->query("SELECT status FROM nomination_session WHERE id=1");
+    $nom_status = ($nom_status_query->num_rows > 0) ? $nom_status_query->fetch_assoc()['status'] : 'Pending';
     
+    if ($action === 'start' && in_array($nom_status, ['Active', 'Paused'])) {
+        $_SESSION['error'] = "Cannot start voting session while nomination session is active. Please end the nomination session first.";
+        header("Location: AdminDashboard.php");
+        exit();
+    }
+    
+    $start_time = $start_time_from_form; // By default, use the time from the form.
     switch($action) {
         case 'start':
-            $status = 'Active';
+            if (strtotime($start_time_from_form) > strtotime($current_time)) {
+                $status = 'Scheduled';
+                $start_time = $start_time_from_form;
+            } else {
+                $status = 'Active';
+                $start_time = $current_time;
+            }
             break;
         case 'pause':
             $status = 'Paused';
@@ -22,6 +47,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'end':
             $status = 'Ended';
             break;
+        case 'update':
+            // Retrieve the current status so it doesn't get reset to Pending
+            $current_status_query = $conn->query("SELECT status FROM voting_session WHERE id=1");
+            $status = ($current_status_query->num_rows > 0) ? $current_status_query->fetch_assoc()['status'] : 'Pending';
+            break;
         default:
             $status = 'Pending';
     }
@@ -31,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($check->num_rows > 0) {
         $stmt = $conn->prepare("UPDATE voting_session SET start_time=?, end_time=?, status=? WHERE id=1");
+
         $stmt->bind_param("sss", $start_time, $end_time, $status);
     } else {
         $stmt = $conn->prepare("INSERT INTO voting_session (id, start_time, end_time, status) VALUES (1, ?, ?, ?)");
@@ -39,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($stmt->execute()) {
         $_SESSION['message'] = "Session updated successfully!";
+
     } else {
         $_SESSION['error'] = "Error updating session: " . $conn->error;
     }

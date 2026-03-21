@@ -3,6 +3,9 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
+// Set a default timezone. This is crucial for consistent time handling.
+date_default_timezone_set('Asia/Kathmandu');
+
 // Database configuration
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');

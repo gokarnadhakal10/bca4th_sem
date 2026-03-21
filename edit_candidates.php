@@ -1,198 +1,229 @@
 <?php
-require 'config.php';
+session_start();
+require 'config.php'; 
 require 'auth.php';
+
+// Only allow admin
 admin_required();
 
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-
+// Helper function to escape output
 function h($str) {
-    return htmlspecialchars($str ?? '', ENT_QUOTES, 'UTF-8');
+    return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
 }
 
+// Check voting session status to prevent edits during an active election
+$session_check = $conn->query("SELECT status FROM voting_session WHERE id = 1");
+if ($session_check && $session_check->num_rows > 0) {
+    $session = $session_check->fetch_assoc();
+    if (isset($session['status']) && in_array($session['status'], ['Active', 'Paused'])) {
+        // Display a user-friendly error message and stop the script.
+        die("<div style='font-family: sans-serif; text-align: center; padding: 40px; max-width: 600px; margin: 50px auto; background: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); border-left: 5px solid #e74c3c;'>
+            <h2 style='color: #333;'><i class='fas fa-lock' style='color: #e74c3c;'></i> Action Locked</h2>
+            <p style='font-size: 16px; color: #555; line-height: 1.6;'>Candidates cannot be edited while a voting session is active or paused. This is to ensure election integrity.</p>
+            <a href='AdminDashboard.php' style='display: inline-block; margin-top: 20px; padding: 10px 20px; background: #3498db; color: white; text-decoration: none; border-radius: 5px;'>Back to Dashboard</a>
+        </div>");
+    }
+}
+
+
+// Get candidate ID from GET
 $id = intval($_GET['id'] ?? 0);
 if ($id <= 0) {
-    header("Location: AdminDashboard.php");
+    header('Location: AdminDashboard.php');
     exit;
 }
 
-// Fetch candidate
+// Fetch candidate from DB
 $stmt = $conn->prepare("SELECT * FROM candidates WHERE id=?");
-$stmt->bind_param("i", $id);
-$stmt->execute();
-$candidate = $stmt->get_result()->fetch_assoc();
 
-if (!$candidate) {
-    header("Location: AdminDashboard.php");
+$stmt->bind_param('i', $id);
+$stmt->execute();
+$c = $stmt->get_result()->fetch_assoc();
+
+if (!$c) {
+    header('Location: AdminDashboard.php');
     exit;
 }
 
-$error = "";
-
+// Handle form submission
 if (isset($_POST['update'])) {
-
-    $name       = trim($_POST['name']);
-    $position   = trim($_POST['position']);
+    $name = trim($_POST['name']);
     $party_name = trim($_POST['party_name']);
-    $faculty    = trim($_POST['faculty']);
-    $class      = trim($_POST['class']);
-    $platform   = trim($_POST['platform']);
+    $position = trim($_POST['position']);
+    $faculty = trim($_POST['faculty']);
+    $class = trim($_POST['class']);
+    $platform = trim($_POST['platform']);
+    
+    $photo = $c['photo']; // keep current photo if not changed
+    $party_image = $c['party_image']; // keep current party image
 
-    // 🔥 CHECK DUPLICATE (Option A logic)
-    $check = $conn->prepare("
-        SELECT id FROM candidates 
-        WHERE party_name=? AND position=? AND id != ?
-    ");
-    $check->bind_param("ssi", $party_name, $position, $id);
-    $check->execute();
-    $check->store_result();
+    // Handle photo upload
+    if (!empty($_FILES['photo']['name'])) {
+        $ext = pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION);
+        $new_photo = time() . "_p." . $ext;
+        if(move_uploaded_file($_FILES['photo']['tmp_name'], "uploads/" . $new_photo)){
+            $photo = $new_photo;
+        }
+    }
 
-    if ($check->num_rows > 0) {
+    // Handle party image upload
+    if (!empty($_FILES['party_image']['name'])) {
+        $ext = pathinfo($_FILES['party_image']['name'], PATHINFO_EXTENSION);
+        $new_party_img = time() . "_party." . $ext;
+        if(move_uploaded_file($_FILES['party_image']['tmp_name'], "uploads/" . $new_party_img)){
+            $party_image = $new_party_img;
+        }
+    }
 
-        $error = "This party already has a candidate for this position!";
-
+    // Update candidate in DB
+    $stmt = $conn->prepare("UPDATE candidates SET name=?, party_name=?, position=?, faculty=?, class=?, platform=?, photo=?, party_image=? WHERE id=?");
+    $stmt->bind_param('ssssssssi', $name, $party_name, $position, $faculty, $class, $platform, $photo, $party_image, $id);
+    
+    if($stmt->execute()){
+        echo "<script>alert('Candidate updated successfully!'); window.location='AdminDashboard.php';</script>";
     } else {
-
-        // Upload images only if valid
-        $photo = $candidate['photo'];
-        $party_image = $candidate['party_image'];
-
-        if (!empty($_FILES['photo']['name'])) {
-            $ext = pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION);
-            $new_photo = time() . "_candidate." . $ext;
-            if (move_uploaded_file($_FILES['photo']['tmp_name'], "uploads/" . $new_photo)) {
-                $photo = $new_photo;
-            }
-        }
-
-        if (!empty($_FILES['party_image']['name'])) {
-            $ext = pathinfo($_FILES['party_image']['name'], PATHINFO_EXTENSION);
-            $new_party = time() . "_party." . $ext;
-            if (move_uploaded_file($_FILES['party_image']['tmp_name'], "uploads/" . $new_party)) {
-                $party_image = $new_party;
-            }
-        }
-
-        // Update record
-        $update = $conn->prepare("
-            UPDATE candidates
-            SET name=?, position=?, party_name=?, faculty=?, class=?, platform=?, photo=?, party_image=?
-            WHERE id=?
-        ");
-
-        $update->bind_param(
-            "ssssssssi",
-            $name,
-            $position,
-            $party_name,
-            $faculty,
-            $class,
-            $platform,
-            $photo,
-            $party_image,
-            $id
-        );
-
-        $update->execute();
-
-        echo "<script>
-                alert('Candidate updated successfully!');
-                window.location='AdminDashboard.php';
-              </script>";
-        exit;
+        $error = "Error updating candidate: " . $conn->error;
     }
 }
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Edit Candidate</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edit Candidate - Admin</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-body { font-family: Arial; background:#f4f4f4; padding:20px; }
-.container { max-width:600px; margin:auto; background:#fff; padding:30px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
-h2 { text-align:center; }
-.form-group { margin-bottom:15px; }
-label { display:block; font-weight:bold; margin-bottom:5px; }
-input, select, textarea { width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; }
-textarea { height:100px; }
-button { width:100%; padding:12px; background:#4CAF50; color:white; border:none; border-radius:4px; cursor:pointer; }
-button:hover { background:#45a049; }
-.error { color:red; text-align:center; margin-bottom:10px; font-weight:bold; }
-.img-preview { width:70px; height:70px; object-fit:cover; margin-top:5px; border:1px solid #ccc; }
-.back { display:block; text-align:center; margin-top:10px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    
+    body { 
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+        min-height: 100vh; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        padding: 20px; 
+    }
+
+    .form-container {
+        background: white;
+        padding: 40px;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        width: 100%;
+        max-width: 600px;
+    }
+
+    h2 { text-align: center; color: #333; margin-bottom: 30px; font-size: 28px; }
+    
+    .form-group { margin-bottom: 20px; }
+    
+    label { display: block; margin-bottom: 8px; color: #555; font-weight: 600; }
+    
+    input[type="text"], select, textarea, input[type="file"] {
+        width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;
+        transition: border-color 0.3s;
+    }
+    
+    input:focus, select:focus, textarea:focus { border-color: #667eea; outline: none; }
+    
+    textarea { resize: vertical; height: 100px; }
+    
+    button {
+        width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); }
+    
+    .back-link { display: block; text-align: center; margin-top: 20px; color: #666; text-decoration: none; font-weight: 500; }
+    .back-link:hover { color: #667eea; }
+    
+    .current-img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; margin-top: 10px; border: 1px solid #ddd; }
+    .img-preview-container { display: flex; align-items: center; gap: 15px; }
 </style>
 </head>
 <body>
 
-<div class="container">
-<h2>Edit Candidate</h2>
+<div class="form-container">
+    <h2><i class="fas fa-user-edit"></i> Edit Candidate</h2>
+    
+    <?php if(isset($error)) echo "<p style='color:red; text-align:center;'>$error</p>"; ?>
 
-<?php if($error): ?>
-<div class="error"><?= h($error) ?></div>
-<?php endif; ?>
+    <form method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label>Name</label>
+            <input type="text" name="name" value="<?= h($c['name']) ?>" required>
+        </div>
 
-<form method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label>Position</label>
+            <input type="text" name="position" value="<?= h($c['position']) ?>" required>
+        </div>
 
-<div class="form-group">
-<label>Name</label>
-<input type="text" name="name" value="<?= h($candidate['name']) ?>" required>
-</div>
+        <div class="form-group">
+            <label>Party Name</label>
+            <input type="text" name="party_name" value="<?= h($c['party_name']) ?>" required>
+        </div>
 
-<div class="form-group">
-<label>Position</label>
-<select name="position" required>
-<option value="">-- Select Position --</option>
-<?php
-$positions = ["President","Vice President","Secretary","Treasurer"];
-foreach ($positions as $pos) {
-    $sel = ($candidate['position'] == $pos) ? "selected" : "";
-    echo "<option value='$pos' $sel>$pos</option>";
-}
-?>
-</select>
-</div>
+        <div class="form-group">
+            <label>Party Symbol (Image)</label>
+            <div class="img-preview-container">
+                <?php if ($c['party_image']): ?>
+                    <img src="uploads/<?= h($c['party_image']) ?>" class="current-img" title="Current Symbol">
+                <?php endif; ?>
+                <input type="file" name="party_image" accept="image/*">
+            </div>
+        </div>
 
-<div class="form-group">
-<label>Party Name</label>
-<input type="text" name="party_name" value="<?= h($candidate['party_name']) ?>" required>
-</div>
+        <div class="form-group">
+            <label>Faculty</label>
+            <select name="faculty" required>
+                <option value="">-- Select Faculty --</option>
+                <?php 
+                $faculties = ["BCA", "BBS", "B.ED"];
+                foreach($faculties as $fac) {
+                    $selected = ($c['faculty'] == $fac) ? 'selected' : '';
+                    echo "<option value='$fac' $selected>$fac</option>";
+                }
+                ?>
+            </select>
+        </div>
 
-<div class="form-group">
-<label>Faculty</label>
-<input type="text" name="faculty" value="<?= h($candidate['faculty']) ?>" required>
-</div>
+        <div class="form-group">
+            <label>Class/Semester</label>
+            <select name="class" required>
+                <option value="">-- Select Class --</option>
+                <?php 
+                $classes = ["1st Semester", "2nd Semester", "3rd Semester", "4th Semester", "5th Semester", "6th Semester", "7th Semester", "8th Semester", "1st Year", "2nd Year", "3rd Year", "4th Year"];
+                foreach($classes as $cls) {
+                    $selected = ($c['class'] == $cls) ? 'selected' : '';
+                    echo "<option value='$cls' $selected>$cls</option>";
+                }
+                ?>
+            </select>
+        </div>
 
-<div class="form-group">
-<label>Class</label>
-<input type="text" name="class" value="<?= h($candidate['class']) ?>" required>
-</div>
+        <div class="form-group">
+            <label>Platform/Manifesto</label>
+            <textarea name="platform"><?= h($c['platform'] ?? '') ?></textarea>
+        </div>
 
-<div class="form-group">
-<label>Platform</label>
-<textarea name="platform"><?= h($candidate['platform']) ?></textarea>
-</div>
+        <div class="form-group">
+            <label>Candidate Photo</label>
+            <div class="img-preview-container">
+                <?php if ($c['photo']): ?>
+                    <img src="uploads/<?= h($c['photo']) ?>" class="current-img" title="Current Photo">
+                <?php endif; ?>
+                <input type="file" name="photo" accept="image/*">
+            </div>
+        </div>
 
-<div class="form-group">
-<label>Candidate Photo</label><br>
-<?php if($candidate['photo']): ?>
-<img src="uploads/<?= h($candidate['photo']) ?>" class="img-preview">
-<?php endif; ?>
-<input type="file" name="photo">
-</div>
-
-<div class="form-group">
-<label>Party Symbol</label><br>
-<?php if($candidate['party_image']): ?>
-<img src="uploads/<?= h($candidate['party_image']) ?>" class="img-preview">
-<?php endif; ?>
-<input type="file" name="party_image">
-</div>
-
-<button type="submit" name="update">Update Candidate</button>
-<a href="AdminDashboard.php" class="back">Back</a>
-
-</form>
+        <button type="submit" name="update">Update Candidate</button>
+        <a href="AdminDashboard.php" class="back-link">Back to Dashboard</a>
+    </form>
 </div>
 
 </body>

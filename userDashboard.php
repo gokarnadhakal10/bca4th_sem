@@ -29,12 +29,77 @@ $vote_session = $vote_session_result ? $vote_session_result->fetch_assoc() : nul
 $nomination_session_result = $conn->query("SELECT * FROM nomination_session WHERE id=1");
 $nomination_session = $nomination_session_result ? $nomination_session_result->fetch_assoc() : null;
 
+// ===== AUTO-UPDATE SESSIONS ON PAGE LOAD =====
+$current_time_for_auto_update = date('Y-m-d H:i:s');
+
+// Auto-start scheduled voting session
+if ($vote_session && $vote_session['status'] === 'Scheduled' && strtotime($vote_session['start_time']) <= strtotime($current_time_for_auto_update)) {
+    $conn->query("UPDATE voting_session SET status = 'Active' WHERE id = 1");
+    $vote_session['status'] = 'Active'; // Update for current page
+}
+
+// Auto-end voting session if time is up
+if ($vote_session && in_array($vote_session['status'], ['Active', 'Paused'])) {
+    if (strtotime($vote_session['end_time']) < strtotime($current_time_for_auto_update)) {
+        $conn->query("UPDATE voting_session SET status = 'Ended' WHERE id = 1");
+        $vote_session['status'] = 'Ended'; // Update variable for current page load
+    }
+}
+
+// Auto-start scheduled nomination session
+if ($nomination_session && $nomination_session['status'] === 'Scheduled' && strtotime($nomination_session['start_time']) <= strtotime($current_time_for_auto_update)) {
+    $conn->query("UPDATE nomination_session SET status = 'Active' WHERE id = 1");
+    $nomination_session['status'] = 'Active'; // Update for current page
+}
+
+// Auto-end nomination session if time is up
+if ($nomination_session && in_array($nomination_session['status'], ['Active', 'Paused'])) {
+    if (strtotime($nomination_session['end_time']) < strtotime($current_time_for_auto_update)) {
+        $conn->query("UPDATE nomination_session SET status = 'Ended' WHERE id = 1");
+        $nomination_session['status'] = 'Ended'; // Update variable for current page load
+    }
+}
+// ===== END AUTO-UPDATE SESSIONS =====
+
 // Check if user has already requested nomination
 $my_request = null;
 $stmt = $conn->prepare("SELECT * FROM candidate_requests WHERE voter_id=? ORDER BY id DESC LIMIT 1");
 $stmt->bind_param("i", $voter_id);
 $stmt->execute();
 $my_request = $stmt->get_result()->fetch_assoc();
+
+// Fetch unread notifications for the user
+$notifications = [];
+$notification_ids = [];
+// Assumes a `notifications` table exists: (id, user_id, message, is_read, created_at)
+$notify_stmt = $conn->prepare("SELECT id, message, created_at FROM notifications WHERE user_id = ? AND is_read = 0 ORDER BY created_at DESC");
+$notify_stmt->bind_param("i", $voter_id);
+$notify_stmt->execute();
+$notify_result = $notify_stmt->get_result();
+while ($row = $notify_result->fetch_assoc()) {
+    $notifications[] = $row;
+    $notification_ids[] = $row['id'];
+}
+$notify_stmt->close();
+
+// Mark displayed notifications as read
+if (!empty($notification_ids)) {
+    $ids_placeholder = implode(',', array_fill(0, count($notification_ids), '?'));
+    $mark_read_stmt = $conn->prepare("UPDATE notifications SET is_read = 1 WHERE id IN ($ids_placeholder)");
+    $mark_read_stmt->bind_param(str_repeat('i', count($notification_ids)), ...$notification_ids);
+    $mark_read_stmt->execute();
+    $mark_read_stmt->close();
+}
+
+// Fetch latest notices
+$current_date = date('Y-m-d H:i:s');
+$notices_query = $conn->query("SELECT * FROM notices WHERE is_active = 1 AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY published_at DESC LIMIT 3");
+$notices = [];
+if ($notices_query) {
+    while ($notice = $notices_query->fetch_assoc()) {
+        $notices[] = $notice;
+    }
+}
 
 // ===== VISIBILITY LOGIC =====
 $current_time = date('Y-m-d H:i:s');
@@ -62,7 +127,7 @@ $show_nomination = $is_nomination_active;
 $show_voting = $is_voting_active;
 
 // Enforce Sequence: If voting session has ever started or is active, hide nomination
-if ($vote_session && in_array($vote_session['status'] ?? '', ['Active', 'Paused'])) {
+if ($vote_session && in_array($vote_session['status'] ?? '', ['Active', 'Paused', 'Scheduled'])) {
     $show_nomination = false;
 }
 
@@ -72,7 +137,7 @@ $positions = $positions_result ? $positions_result->fetch_all(MYSQLI_ASSOC) : []
 
 // Fetch votes cast by this voter - CORRECTED TO MATCH YOUR TABLE STRUCTURE
 $stmt = $conn->prepare("
-    SELECT v.position, v.candidate_id, c.name as candidate_name, c.party_name, c.photo 
+    SELECT v.position, v.candidate_id, c.name as candidate_name, c.party_name, c.party_image, c.photo, c.faculty, c.class
     FROM votes v 
     LEFT JOIN candidates c ON v.candidate_id = c.id 
     WHERE v.voter_id = ?
@@ -93,25 +158,28 @@ while ($row = $res->fetch_assoc()) {
 // Calculate voting progress
 $total_positions = count($positions);
 $voted_count = count($voted_candidates);
-$voting_progress = $total_positions > 0 ? round(($voted_count / $total_positions) * 100) : 0;
+$current_progress_position = isset($_GET['position']) ? intval($_GET['position']) : $current_position_index;
+$voting_progress = $total_positions > 0 ? round((max($voted_count, $current_progress_position + 1) / $total_positions) * 100) : 0;
 
 // Check if all votes are completed
-$all_votes_completed = ($voted_count == $total_positions && $total_positions > 0);
+$all_votes_completed = ($voted_count == $total_positions && $total_positions > 0) || isset($_GET['finished']);
 
-// Get current position to show (first unvoted position)
-$current_position_index = 0;
-foreach ($positions as $index => $pos) {
-    if (!in_array($pos['position'], $voted_positions)) {
-        $current_position_index = $index;
-        break;
-    }
-}
+// Get current position to show (allow free navigation)
+$current_position_index = 0; // Default to first position
 
 // Allow navigation via GET parameter
 if (isset($_GET['position']) && is_numeric($_GET['position'])) {
     $req_pos = intval($_GET['position']);
     if ($req_pos >= 0 && $req_pos < $total_positions) {
         $current_position_index = $req_pos;
+    }
+} elseif (!isset($_GET['finished'])) {
+    // If no position specified and not finished, find first unvoted position
+    foreach ($positions as $index => $pos) {
+        if (!in_array($pos['position'], $voted_positions)) {
+            $current_position_index = $index;
+            break;
+        }
     }
 }
 
@@ -269,6 +337,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_position'])) {
             background: #fff3cd;
             color: #856404;
             border-left: 4px solid var(--warning);
+        }
+
+        /* Notices Section */
+        .notices-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .notices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        .notice-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fafafa;
+            transition: all 0.3s ease;
+        }
+        .notice-card:hover {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .notice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .notice-category {
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .notice-date {
+            font-size: 12px;
+            color: #666;
+        }
+        .notice-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .notice-content {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        .notice-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .notice-link:hover {
+            text-decoration: underline;
         }
 
         * {
@@ -1063,6 +1191,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_position'])) {
                 </div>
             <?php endif; ?>
 
+            <!-- User-specific Notifications -->
+            <?php if(!empty($notifications)): ?>
+                <?php foreach($notifications as $notification): ?>
+                <div class="alert warning">
+                    <i class="fas fa-info-circle"></i>
+                    <div>
+                        <strong>Notification:</strong> <?= htmlspecialchars($notification['message']); ?>
+                        <div style="font-size: 12px; margin-top: 5px; opacity: 0.8;">Received on: <?= date('M d, Y h:i A', strtotime($notification['created_at'])) ?></div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+
+            <!-- Notices Section -->
+            <?php if(!empty($notices)): ?>
+            <div class="notices-section">
+                <h3 style="margin-bottom: 15px; color: var(--primary);"><i class="fas fa-bullhorn"></i> Latest Notices</h3>
+                <div class="notices-grid">
+                    <?php foreach($notices as $notice): ?>
+                    <div class="notice-card">
+                        <div class="notice-header">
+                            <span class="notice-category" style="background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 4px; font-size: 12px;"><?php echo htmlspecialchars($notice['category']); ?></span>
+                            <span class="notice-date"><?php echo date('M d, Y', strtotime($notice['published_at'])); ?></span>
+                        </div>
+                        <h4 class="notice-title"><?php echo htmlspecialchars($notice['title']); ?></h4>
+                        <p class="notice-content"><?php echo htmlspecialchars(substr($notice['content'], 0, 100)) . (strlen($notice['content']) > 100 ? '...' : ''); ?></p>
+                        <a href="user_notices.php" class="notice-link">Read More</a>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <!-- Phase Banner -->
             <?php if ($show_nomination && $nomination_session): ?>
                 <div class="phase-banner">
@@ -1228,7 +1389,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_position'])) {
                                                    
 
 
-                                                 
+                                                 <option value=" President">President</option>
                                                   <option value="Vice President">Vice President</option>
                                                  <option value="Secretary">Secretary</option>
                                                  <option value="Treasurer">Treasurer</option>
@@ -1382,9 +1543,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_position'])) {
                             <i class="fas fa-arrow-left"></i> Previous
                         </button>
                         
+                        <button class="nav-btn skip" onclick="skipPosition()" style="background: #f39c12; color: white;">
+                            <i class="fas fa-forward"></i> Skip Position
+                        </button>
+                        
+                        <?php if ($current_position_index == $total_positions - 1): ?>
+                        <button class="nav-btn finish" onclick="finishVoting()" style="background: var(--success); color: white;">
+                            <i class="fas fa-check"></i> Finish Voting
+                        </button>
+                        <?php else: ?>
                         <button class="nav-btn" onclick="nextPosition()" id="nextBtn">
                             Next <i class="fas fa-arrow-right"></i>
                         </button>
+                        <?php endif; ?>
                     </div>
                 <?php 
                     }
@@ -1458,10 +1629,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_position'])) {
                                     </div>
                                 <?php endif; ?>
                             </div>
-                            <div class="review-info">
+                            <div class="review-info" style="flex: 1;">
                                 <div style="font-weight: 600; color: var(--primary); font-size: 16px;"><?= htmlspecialchars($vote['position'] ?? '') ?></div>
                                 <div style="color: var(--text-dark); font-weight: 500;"><?= htmlspecialchars($vote['candidate_name'] ?? '') ?></div>
-                                <div style="font-size: 13px; color: var(--text-light);"><?= htmlspecialchars($vote['party_name'] ?? '') ?></div>
+                                <div style="font-size: 13px; color: var(--text-light);">
+                                    <?php if(!empty($vote['party_name'])): ?>
+                                        <?php if(!empty($vote['party_image'])): ?>
+                                            <img src="uploads/<?= htmlspecialchars($vote['party_image']) ?>" alt="Party" style="height: 16px; object-fit: contain; margin-right: 5px; vertical-align: middle;">
+                                        <?php endif; ?>
+                                        <?= htmlspecialchars($vote['party_name']) ?> | 
+                                    <?php endif; ?>
+                                    <?= htmlspecialchars($vote['faculty'] ?? 'N/A') ?> - <?= htmlspecialchars($vote['class'] ?? 'N/A') ?>
+                                </div>
                             </div>
                             <div style="margin-left: auto; color: var(--success);">
                                 <i class="fas fa-check-circle"></i>
@@ -1601,24 +1780,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_position'])) {
         // Navigate to next position
         function nextPosition() {
             if (currentPositionIndex < totalPositions - 1) {
-                // Check if current position is voted
-                if (!votedCandidates[currentPosition]) {
-                    if (!confirm('You have not selected a candidate for this position. Are you sure you want to skip it?')) {
-                        return;
-                    }
-                }
-                
                 currentPositionIndex++;
                 window.location.href = `?position=${currentPositionIndex}#voting-section`;
             } else {
-                // This is the last position, check if all positions are voted
-                if (!votedCandidates[currentPosition]) {
-                    if (!confirm('You have not selected a candidate for this position. Are you sure you want to finish voting?')) {
-                        return;
-                    }
-                }
                 checkAllVotesCompleted();
             }
+        }
+
+        // Skip current position and go to next
+        function skipPosition() {
+            if (currentPositionIndex < totalPositions - 1) {
+                currentPositionIndex++;
+                window.location.href = `?position=${currentPositionIndex}#voting-section`;
+            } else {
+                finishVoting();
+            }
+        }
+
+        // Finish voting
+        function finishVoting() {
+            // Redirect with finished parameter to show completion
+            window.location.href = '?finished=1#voting-section';
         }
 
         // Navigate to previous position
@@ -1701,7 +1883,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_position'])) {
                     nextBtn.disabled = false;
                 }
             }
+            
+            // Start polling for session status updates
+            setInterval(checkSessionStatus, 3000);
         });
+
+        // AJAX to check session status
+        let currentVotingStatus = "<?= $vote_session['status'] ?? 'Pending' ?>";
+        let currentNominationStatus = "<?= $nomination_session['status'] ?? 'Pending' ?>";
+
+        function checkSessionStatus() {
+            fetch('check_session_status.php')
+                .then(response => response.json())
+                .then(data => {
+                    const newVotingStatus = data.voting ? data.voting.status : 'Pending';
+                    const newNominationStatus = data.nomination ? data.nomination.status : 'Pending';
+
+                    // If status has changed, reload the page to show/hide relevant sections
+                    if (newVotingStatus !== currentVotingStatus || newNominationStatus !== currentNominationStatus) {
+                        console.log("Session status changed. Reloading...");
+                        window.location.reload();
+                    }
+                })
+                .catch(error => {
+                    // Silently fail on network errors to avoid disrupting user
+                    console.log('Status check failed');
+                });
+        }
     </script>
 </body>
 </html>

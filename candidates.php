@@ -5,6 +5,17 @@ require "auth.php";
 admin_required();
 
 $result = $conn->query("SELECT * FROM candidates");
+
+// Check if election is locked (no modifications allowed)
+$is_election_locked = false;
+$session_check = $conn->query("SELECT status FROM voting_session WHERE id = 1");
+if ($session_check && $session_check->num_rows > 0) {
+    $session = $session_check->fetch_assoc();
+    if (isset($session['status']) && in_array($session['status'], ['Active', 'Paused'])) {
+        $is_election_locked = true;
+    }
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -146,6 +157,12 @@ $result = $conn->query("SELECT * FROM candidates");
         .btn-info { background: #3498db; color: white; }
         
         .btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        .btn.disabled {
+            background-color: #bdc3c7 !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .btn.disabled:hover { transform: none; opacity: 0.7; }
 
         /* Tables */
         .table-responsive { overflow-x: auto; }
@@ -194,6 +211,7 @@ $result = $conn->query("SELECT * FROM candidates");
         <li><a href="admin_result.php"><i class="fas fa-chart-bar"></i> Results</a></li>
         <li><a href="admin_notices.php"><i class="fas fa-bullhorn"></i> Notices</a></li>
         <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        <li><a href="reset_election.php" style="color: #f72585;"><i class="fas fa-redo"></i> Reset Election</a></li>
     </ul>
 </div>
 
@@ -210,7 +228,11 @@ $result = $conn->query("SELECT * FROM candidates");
     <div class="dashboard-section">
         <div class="section-header">
             <div class="section-title"><i class="fas fa-user-tie"></i> Candidates List</div>
-            <a href="add_candidates.php" class="btn btn-primary"><i class="fas fa-plus"></i> Add Candidate</a>
+            <?php if (!$is_election_locked): ?>
+                <a href="add_candidates.php" class="btn btn-primary"><i class="fas fa-plus"></i> Add Candidate</a>
+            <?php else: ?>
+                <a href="#" class="btn btn-primary disabled" onclick="alert('Unable to add candidates. This action is disabled during an active election.'); return false;" title="Adding candidates is disabled during an active election."><i class="fas fa-plus"></i> Add Candidate</a>
+            <?php endif; ?>
         </div>
         <div class="table-responsive">
             <table>
@@ -218,7 +240,7 @@ $result = $conn->query("SELECT * FROM candidates");
                     <tr>
                         <th>ID</th>
                         <th>Candidate Info</th>
-                        <th>Party </th>
+                        <th>Party</th>
                         <th>Symbol</th>
                         <th>Position</th>
                         <th>Faculty / Class</th>
@@ -260,12 +282,17 @@ $result = $conn->query("SELECT * FROM candidates");
                         </td>
                         <td>
                             <div style="display: flex; gap: 5px;">
-                                <a href="edit_candidates.php?id=<?php echo $row['id']; ?>" class="btn btn-info" style="padding: 5px 10px;">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                <a href="delete_candidate.php?id=<?php echo $row['id']; ?>" class="btn btn-danger" style="padding: 5px 10px;" onclick="return confirm('Are you sure you want to delete this candidate?')">
-                                    <i class="fas fa-trash"></i>
-                                </a>
+                                <?php if (!$is_election_locked): ?>
+                                    <a href="edit_candidates.php?id=<?php echo $row['id']; ?>" class="btn btn-info" style="padding: 5px 10px;" title="Edit Candidate">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="delete_candidate.php?id=<?php echo $row['id']; ?>" class="btn btn-danger" style="padding: 5px 10px;" onclick="return confirm('Are you sure you want to delete this candidate?')" title="Delete Candidate">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                <?php else: ?>
+                                    <a href="#" class="btn btn-info disabled" style="padding: 5px 10px;" onclick="alert('Unable to edit candidates during an active election.'); return false;" title="Editing is disabled during an active election."><i class="fas fa-edit"></i></a>
+                                    <a href="#" class="btn btn-danger disabled" style="padding: 5px 10px;" onclick="alert('Unable to delete candidates during an active election.'); return false;" title="Deleting is disabled during an active election."><i class="fas fa-trash"></i></a>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>

@@ -3,21 +3,36 @@ require "config.php";
 require "auth.php";
 admin_required();
 
+// Fetch voting session and nomination session to determine status
+$vote_session = $conn->query("SELECT * FROM voting_session WHERE id=1")->fetch_assoc();
+$nomination_session = $conn->query("SELECT * FROM nomination_session WHERE id=1")->fetch_assoc();
+// Results can only be published after the voting session has completely ended and nomination session is not active
+$can_publish = ($vote_session && isset($vote_session['status']) && $vote_session['status'] === 'Ended' && 
+                $nomination_session && isset($nomination_session['status']) && $nomination_session['status'] !== 'Active');
+
+// Check if any session is currently active or paused (started)
+$is_session_running = (isset($vote_session['status']) && in_array($vote_session['status'], ['Active', 'Paused'])) || 
+                      (isset($nomination_session['status']) && in_array($nomination_session['status'], ['Active', 'Paused']));
+
 // Handle Publish/Unpublish Actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['publish_results'])) {
-        $conn->query("UPDATE voting_session SET results_published=TRUE WHERE id=1");
-        $success = "Results have been published to the student portal.";
+        if ($can_publish) {
+            $conn->query("UPDATE voting_session SET results_published=TRUE WHERE id=1");
+            $success = "Results have been published to the student portal.";
+        } else {
+            $error = "Results can only be published after the voting session has ended and nomination session is not active.";
+        }
     }
     if (isset($_POST['unpublish_results'])) {
         $conn->query("UPDATE voting_session SET results_published=FALSE WHERE id=1");
         $success = "Results have been hidden from the student portal.";
     }
+    // Re-fetch session data after update
+    $vote_session = $conn->query("SELECT * FROM voting_session WHERE id=1")->fetch_assoc();
 }
 
-// Fetch voting session
-$session = $conn->query("SELECT * FROM voting_session WHERE id=1")->fetch_assoc();
-$results_published = $session['results_published'] ?? 0;
+$results_published = $vote_session['results_published'] ?? 0;
 
 // Fetch positions
 $positions = $conn->query("SELECT DISTINCT position FROM candidates");
@@ -33,6 +48,7 @@ $positions = $conn->query("SELECT DISTINCT position FROM candidates");
     <style>
         :root {
             --primary: #4361ee;
+
             --secondary: #3f37c9;
             --success: #4cc9f0;
             --danger: #f72585;
@@ -141,6 +157,8 @@ $positions = $conn->query("SELECT DISTINCT position FROM candidates");
         
         .btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-size: 14px; }
         .btn-secondary { background: #95a5a6; color: white; }
+        .btn-success { background: #2ecc71; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
         .btn:hover { opacity: 0.9; transform: translateY(-2px); }
 
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -162,6 +180,7 @@ $positions = $conn->query("SELECT DISTINCT position FROM candidates");
             <li><a href="admin_result.php" class="active"><i class="fas fa-chart-bar"></i> Results</a></li>
             <li><a href="admin_notices.php"><i class="fas fa-bullhorn"></i> Notices</a></li>
             <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            <li><a href="reset_election.php" style="color: #f72585;"><i class="fas fa-redo"></i> Reset Election</a></li>
         </ul>
     </div>
 
@@ -178,6 +197,12 @@ $positions = $conn->query("SELECT DISTINCT position FROM candidates");
         <?php if(isset($success)): ?>
             <div class="alert alert-success" style="background: #d4edda; color: #155724; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #c3e6cb;">
                 <i class="fas fa-check-circle"></i> <?php echo $success; ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if(isset($error)): ?>
+            <div class="alert alert-danger" style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #f5c6cb;">
+                <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
             </div>
         <?php endif; ?>
 
@@ -198,10 +223,20 @@ $positions = $conn->query("SELECT DISTINCT position FROM candidates");
                 <?php if($results_published): ?>
                     <button type="submit" name="unpublish_results" class="btn btn-danger"><i class="fas fa-eye-slash"></i> Unpublish Results</button>
                 <?php else: ?>
-                    <button type="submit" name="publish_results" class="btn btn-success"><i class="fas fa-eye"></i> Publish Results</button>
+                    <?php if ($can_publish): ?>
+                        <button type="submit" name="publish_results" class="btn btn-success"><i class="fas fa-eye"></i> Publish Results</button>
+                    <?php else: ?>
+                        <button type="button" class="btn btn-success" disabled title="Results can only be published after the voting session has ended and nomination session is not active." style="cursor: not-allowed; background-color: #bdc3c7; border-color: #bdc3c7;"><i class="fas fa-eye"></i> Publish Results</button>
+                    <?php endif; ?>
                 <?php endif; ?>
             </form>
         </div>
+
+        <?php if ($is_session_running): ?>
+            <div class="dashboard-section" style="text-align: center; padding: 40px 20px;">
+                <p style="color: #666; max-width: 600px; margin: 0 auto;">To ensure complete election integrity, results are hidden from the administration while the nomination or voting sessions are active. Final tallies will be available once the election period has officially ended.</p>
+            </div>
+        <?php else: ?>
 
         <?php while ($pos = $positions->fetch_assoc()): ?>
             <?php
@@ -299,6 +334,7 @@ $positions = $conn->query("SELECT DISTINCT position FROM candidates");
                 <?php endif; ?>
             </div>
         <?php endwhile; ?>
+        <?php endif; ?>
     </div>
 
 </body>

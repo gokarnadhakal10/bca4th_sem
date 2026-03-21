@@ -5,6 +5,17 @@ require "auth.php";
 admin_required();
 
 $result = $conn->query("SELECT * FROM users");
+
+// Check voting session status to disable adding users during an election for security
+$can_add_voters = true;
+$session_check = $conn->query("SELECT status FROM voting_session WHERE id = 1");
+if ($session_check && $session_check->num_rows > 0) {
+    $session = $session_check->fetch_assoc();
+    if (isset($session['status']) && in_array($session['status'], ['Active', 'Paused'])) {
+        $can_add_voters = false;
+    }
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -146,6 +157,12 @@ $result = $conn->query("SELECT * FROM users");
         .btn-info { background: #3498db; color: white; }
         
         .btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        .btn.disabled {
+            background-color: #bdc3c7 !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .btn.disabled:hover { transform: none; opacity: 0.7; }
 
         /* Tables */
         .table-responsive { overflow-x: auto; }
@@ -196,6 +213,7 @@ $result = $conn->query("SELECT * FROM users");
         <li><a href="admin_result.php"><i class="fas fa-chart-bar"></i> Results</a></li>
         <li><a href="admin_notices.php"><i class="fas fa-bullhorn"></i> Notices</a></li>
         <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        <li><a href="reset_election.php" style="color: #f72585;"><i class="fas fa-redo"></i> Reset Election</a></li>
     </ul>
 </div>
 
@@ -212,7 +230,11 @@ $result = $conn->query("SELECT * FROM users");
     <div class="dashboard-section">
         <div class="section-header">
             <div class="section-title"><i class="fas fa-users"></i> Registered Voters List</div>
-            <a href="studentRegistration.html" class="btn btn-primary"><i class="fas fa-plus"></i> Add Voter</a>
+            <?php if ($can_add_voters): ?>
+                <a href="studentRegistration.html" class="btn btn-primary"><i class="fas fa-plus"></i> Add Voter</a>
+            <?php else: ?>
+                <a href="#" class="btn btn-primary disabled" onclick="alert('Unable to add voters. User registration is disabled during an active election for security reasons.'); return false;" title="User registration is disabled during an active election period for security reasons."><i class="fas fa-plus"></i> Add Voter</a>
+            <?php endif; ?>
         </div>
         <div class="table-responsive">
             <table>

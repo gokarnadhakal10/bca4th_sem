@@ -97,6 +97,17 @@ if($conn->connect_error){
     die("Connection failed: ".$conn->connect_error);
 }
 
+// Check if a voting session is active or has ended, which should block new registrations
+$session_check = $conn->query("SELECT status FROM voting_session WHERE id = 1");
+if ($session_check && $session_check->num_rows > 0) {
+    $session = $session_check->fetch_assoc();
+    // Prevent registration if voting is Active or Paused.
+    // This enhances security by preventing addition of new voters during an active election.
+    if (isset($session['status']) && in_array($session['status'], ['Active', 'Paused'])) {
+        die("Error: User registration is disabled during an active election period. This is a security measure.");
+    }
+}
+
 // Check if email or mobile exists
 $stmt = $conn->prepare("SELECT id FROM users WHERE email=? OR mobile=?");
 $stmt->bind_param("ss",$email,$mobile);

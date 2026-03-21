@@ -1,225 +1,505 @@
 <?php
 session_start();
-require "config.php";
+require "config.php"; // Database connection
+require "auth.php";
 
 $success = "";
 $error = "";
 
-/* ====== STATIC OPTIONS ====== */
-$positions = ["President", "Vice President", "Secretary", "Treasurer"];
-$faculties = ["BCA", "BBS", "B.Ed"];
-$classes   = ["1st Year", "2nd Year", "3rd Year", "4th Year","1st semester", "2nd semester","3rd semester","4th semester","5th semester","6th  semester","7th semester","8 th semester"];
-
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-
-    $name       = trim($_POST['name']);
-    $position   = $_POST['position'];
+// Add candidate (Admin)
+if (isset($_POST['add'])) {
+    $user_id = $_POST['user_id']; // New: selected student
+    $name = trim($_POST['name']);
     $party_name = trim($_POST['party_name']);
-    $faculty    = $_POST['faculty'];
-    $class      = $_POST['class'];
-    $platform   = trim($_POST['platform']);
+    $position = trim($_POST['position']);
+    $faculty = trim($_POST['faculty']);
+    $class = trim($_POST['class']);
+    $platform = trim($_POST['platform']);
+    
+    // File uploads
+    $photo = $_FILES['photo']['name'];
+    $party_image = $_FILES['party_image']['name'];
+    $photo_tmp = $_FILES['photo']['tmp_name'];
+    $party_image_tmp = $_FILES['party_image']['tmp_name'];
 
-    // Upload photo
-    $photo_path = "";
-    if (!empty($_FILES["photo"]["name"])) {
-        $target_dir = "uploads/";
-        if (!is_dir($target_dir)) {
-            mkdir($target_dir, 0777, true);
+    // Image Validation
+    $valid_upload = true;
+    $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
+    $allowed_mimes = ['image/jpeg', 'image/png', 'image/gif'];
+    $max_size = 5 * 1024 * 1024; // 5MB
+
+    // Validate Candidate Photo
+    if (!empty($photo)) {
+        $ext = strtolower(pathinfo($photo, PATHINFO_EXTENSION));
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file($photo_tmp);
+        
+        if ($_FILES['photo']['size'] > $max_size) {
+            $valid_upload = false;
+            $error = "Candidate photo is too large (Max 5MB).";
+        } elseif (!in_array($ext, $allowed_exts) || !in_array($mime, $allowed_mimes)) {
+            $valid_upload = false;
+            $error = "Invalid candidate photo format. Only JPG, PNG, GIF allowed.";
         }
-
-        $photo_path = $target_dir . time() . "_" . basename($_FILES["photo"]["name"]);
-        move_uploaded_file($_FILES["photo"]["tmp_name"], $photo_path);
     }
 
-    // Upload party image
-    $party_image_path = "";
-    if (!empty($_FILES["party_image"]["name"])) {
-        $target_dir = "uploads/";
-        $party_image_path = $target_dir . time() . "_" . basename($_FILES["party_image"]["name"]);
-        move_uploaded_file($_FILES["party_image"]["tmp_name"], $party_image_path);
+    // Validate Party Image
+    if ($valid_upload && !empty($party_image)) {
+        $ext = strtolower(pathinfo($party_image, PATHINFO_EXTENSION));
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file($party_image_tmp);
+        
+        if ($_FILES['party_image']['size'] > $max_size) {
+            $valid_upload = false;
+            $error = "Party image is too large (Max 5MB).";
+        } elseif (!in_array($ext, $allowed_exts) || !in_array($mime, $allowed_mimes)) {
+            $valid_upload = false;
+            $error = "Invalid party image format. Only JPG, PNG, GIF allowed.";
+        }
     }
 
-    // CHECK: One party one position
-    $check = $conn->prepare("SELECT id FROM candidates WHERE party_name=? AND position=?");
-    $check->bind_param("ss", $party_name, $position);
-    $check->execute();
-    $check->store_result();
+    // Create uploads folder if not exists
+    if (!is_dir("uploads")) {
+        mkdir("uploads");
+    }
 
-    if ($check->num_rows > 0) {
-        $error = " This party already has a candidate for this position!";
-    } else {
+    if ($valid_upload) {
+        // Check for duplicate candidate for this user_id
+        $check_stmt = $conn->prepare("SELECT * FROM candidates WHERE user_id=?");
+        $check_stmt->bind_param("i", $user_id);
+        $check_stmt->execute();
+        $check_result = $check_stmt->get_result();
 
-        $stmt = $conn->prepare("INSERT INTO candidates 
-            (name, position, party_name, party_image, faculty, class, platform, photo) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-
-        $stmt->bind_param("ssssssss", 
-            $name, $position, $party_name, 
-            $party_image_path, $faculty, 
-            $class, $platform, $photo_path
-        );
-
-        if ($stmt->execute()) {
-            $success = " Candidate added successfully!";
+        if($check_result->num_rows > 0){
+            $error = "This student is already registered as a candidate!";
         } else {
-            $error = "Database Error: " . $conn->error;
+            // Move uploaded files
+            $upload_success = true;
+            $photo_path = "";
+            $party_image_path = "";
+            
+            if(!empty($photo) && move_uploaded_file($photo_tmp, "uploads/".$photo)){
+                $photo_path = $photo;
+            } else {
+                $upload_success = false;
+                $error = "Failed to upload candidate photo!";
+            }
+            
+            if(!empty($party_image) && move_uploaded_file($party_image_tmp, "uploads/".$party_image)){
+                $party_image_path = $party_image;
+            } else {
+                $party_image_path = "";
+            }
+            
+            if($upload_success){
+                // Find the lowest available ID (Gap Detection)
+                $id_result = $conn->query("SELECT id FROM candidates ORDER BY id ASC");
+                $next_id = 1;
+                while ($row = $id_result->fetch_assoc()) {
+                    if ($row['id'] == $next_id) {
+                        $next_id++;
+                    } else {
+                        break;
+                    }
+                }
+
+                // Insert candidate using prepared statement
+                $stmt = $conn->prepare("INSERT INTO candidates(id, user_id, name, position, party_name, party_image, faculty, class, platform, photo) VALUES(?,?,?,?,?,?,?,?,?,?)");
+                $stmt->bind_param("iissssssss", $next_id, $user_id, $name, $position, $party_name, $party_image_path, $faculty, $class, $platform, $photo_path);
+                
+                if($stmt->execute()){
+                    // Update the user's nomination_status
+                    $conn->query("UPDATE users SET nomination_status='applied' WHERE id=".$user_id);
+                    $success = "Candidate added successfully!";
+                } else {
+                    $error = "Error: ".$stmt->error;
+                }
+                $stmt->close();
+            }
         }
+        $check_stmt->close();
     }
 }
+
 ?>
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Add Candidate</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Candidate - Admin Panel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        
+:root {
+    --primary: #4361ee;
+    --secondary: #3f37c9;
+    --success: #4cc9f0;
+    --danger: #f72585;
+    --warning: #f8961e;
+    --info: #4895ef;
+    --dark: #1a1a2e;
+    --light: #f8f9fa;
+    --sidebar-width: 260px;
+}
 
-<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    padding: 40px;
+    background: #f0f2f5;
+    display: flex;
+    min-height: 100vh;
 }
 
-.container {
-    background: white;
-    max-width: 600px;
-    margin: auto;
-    padding: 30px;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+/* Sidebar */
+.sidebar {
+    width: var(--sidebar-width);
+    background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+    color: white;
+    position: fixed;
+    height: 100vh;
+    padding: 20px;
+    z-index: 100;
+    transition: all 0.3s;
 }
 
-h2 {
-    text-align: center;
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     margin-bottom: 20px;
 }
 
-input, select, textarea {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 15px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
+.logo-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--primary);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
 }
 
-button {
+.nav-links {
+    list-style: none;
+}
+
+.nav-links li {
+    margin-bottom: 10px;
+}
+
+.nav-links a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 15px;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.nav-links a:hover,
+.nav-links a.active {
+    background: rgba(67, 97, 238, 0.2);
+    color: white;
+    transform: translateX(5px);
+}
+
+/* Main Content */
+.main-content {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    padding: 30px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.welcome-text h2 {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.welcome-text p {
+    color: #555;
+    margin-top: 4px;
+}
+
+.dashboard-section {
+    background: white;
+    border-radius: 16px;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Form */
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #555;
+}
+
+.form-control {
     width: 100%;
     padding: 12px;
-    background: #667eea;
-    color: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.form-control:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+}
+
+textarea.form-control {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* Buttons */
+.btn {
+    padding: 12px 24px;
     border: none;
-    border-radius: 6px;
-    font-weight: bold;
+    border-radius: 8px;
+    font-weight: 600;
     cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    font-size: 14px;
 }
 
-button:hover {
-    background: #5563c1;
+.btn-primary {
+    background: var(--primary);
+    color: white;
 }
 
-.success {
+.btn-secondary {
+    background: #95a5a6;
+    color: white;
+}
+
+.btn:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+}
+
+/* Alerts */
+.alert {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.alert-success {
     background: #d4edda;
     color: #155724;
-    padding: 10px;
-    margin-bottom: 15px;
-    border-radius: 5px;
+    border: 1px solid #c3e6cb;
 }
 
-.error {
+.alert-danger {
     background: #f8d7da;
     color: #721c24;
-    padding: 10px;
-    margin-bottom: 15px;
-    border-radius: 5px;
+    border: 1px solid #f5c6cb;
 }
-</style>
 
-<script>
-function validateForm() {
-
-    let name = document.forms["candidateForm"]["name"].value;
-    let position = document.forms["candidateForm"]["position"].value;
-    let faculty = document.forms["candidateForm"]["faculty"].value;
-    let classValue = document.forms["candidateForm"]["class"].value;
-
-    if (name === "" || position === "" || faculty === "" || classValue === "") {
-        alert("All required fields must be selected!");
-        return false;
+/* Responsive */
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
     }
-
-    return true;
+    .main-content {
+        margin-left: 0;
+        padding: 20px;
+    }
+    .dashboard-section {
+        padding: 20px;
+    }
 }
-</script>
 
+
+    </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Add Candidate</h2>
-<div style="margin-bottom:15px;">
-    <a href="adminDashboard.php" 
-       style="
-            text-decoration:none;
-            background:#764ba2;
-            color:white;
-            padding:8px 14px;
-            border-radius:6px;
-            font-size:14px;
-            display:inline-block;
-       ">
-       Back to Dashboard
-    </a>
+<!-- Sidebar (unchanged) -->
+<div class="sidebar">
+
+
+    <div class="sidebar-header">
+        <div class="logo-icon"><i class="fas fa-vote-yea"></i></div>
+        <h3>Admin Panel</h3>
+    </div>
+    <ul class="nav-links">
+        <li><a href="AdminDashboard.php" class="active"><i class="fas fa-th-large"></i> Dashboard</a></li>
+        <li><a href="voters.php"><i class="fas fa-users"></i> Users</a></li>
+        <li><a href="candidates.php"><i class="fas fa-user-tie"></i> Candidates</a></li>
+        <li><a href="admin_result.php"><i class="fas fa-chart-bar"></i> Results</a></li>
+        <li><a href="admin_notices.php"><i class="fas fa-bullhorn"></i> Notices</a></li>
+        <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        <li><a href="reset_election.php" style="color: #f72585;"><i class="fas fa-redo"></i> Reset Election</a></li>
+    </ul>
 </div>
-    <?php if($success): ?>
-        <div class="success"><?= $success ?></div>
+
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+    <div class="header">
+        <div class="welcome-text">
+            <h2>Add New Candidate</h2>
+            <p>Register a new candidate for the election.</p>
+        </div>
+        <a href="candidates.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back to List</a>
+    </div>
+
+    <?php if(!empty($success)): ?>
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i> <?php echo $success; ?>
+        </div>
     <?php endif; ?>
 
-    <?php if($error): ?>
-        <div class="error"><?= $error ?></div>
+    <?php if(!empty($error)): ?>
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
+        </div>
     <?php endif; ?>
 
-    <form name="candidateForm" method="POST" enctype="multipart/form-data" onsubmit="return validateForm()">
-
-        <input type="text" name="name" placeholder="Candidate Name" required>
-
-        <!-- Position Dropdown -->
-        <select name="position" required>
-            <option value="">-- Select Position --</option>
-            <?php foreach($positions as $pos): ?>
-                <option value="<?= $pos ?>"><?= $pos ?></option>
-            <?php endforeach; ?>
-        </select>
-
-        <input type="text" name="party_name" placeholder="Party Name" required>
-
-        <!-- Faculty Dropdown -->
-        <select name="faculty" required>
-            <option value="">-- Select Faculty --</option>
-            <?php foreach($faculties as $fac): ?>
-                <option value="<?= $fac ?>"><?= $fac ?></option>
-            <?php endforeach; ?>
-        </select>
-
-        <!-- Class Dropdown -->
-        <select name="class" required>
-            <option value="">-- Select Class --</option>
-            <?php foreach($classes as $cls): ?>
-                <option value="<?= $cls ?>"><?= $cls ?></option>
-            <?php endforeach; ?>
-        </select>
-
-        <textarea name="platform" placeholder="Candidate Platform"></textarea>
-
-        <label>Candidate Photo:</label>
-        <input type="file" name="photo">
-
-        <label>Party Logo:</label>
-        <input type="file" name="party_image">
-
-        <button type="submit">Add Candidate</button>
+    <div class="dashboard-section">
+        <div class="section-title"><i class="fas fa-user-plus"></i> Candidate Details</div>
         
-    </form>
+        <form method="POST" enctype="multipart/form-data">
+            <!-- New: Select Student -->
+            <div class="form-group">
+                <label for="user_id">Select Student *</label>
+                <select name="user_id" id="user_id" class="form-control" required>
+                    <option value="">-- Select Student --</option>
+                    <?php
+                    $users = $conn->query("SELECT id, name FROM users WHERE role='Voter' AND nomination_status='not_applied'");
+                    while($u = $users->fetch_assoc()){
+                        echo "<option value='".$u['id']."'>".$u['name']."</option>";
+                    }
+                    ?>
+                </select>
+            </div>
+
+            <!-- Your existing candidate form fields (name, position, etc.) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label for="name">Candidate Name *</label>
+                    <input type="text" name="name" id="name" class="form-control" required placeholder="Enter full name">
+                </div>
+                
+                <div class="form-group">
+                    <label for="position">Position *</label>
+                    <input type="text" name="position" id="position" class="form-control" required placeholder="e.g. President">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="party_name">Party Name *</label>
+                <input type="text" name="party_name" id="party_name" class="form-control" required placeholder="Enter party name">
+            </div>
+
+            <!-- Faculty and Class -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label for="faculty">Faculty *</label>
+                    <select id="faculty" name="faculty" class="form-control" required>
+                        <option value="">-- Select Faculty --</option>
+                        <option value="BCA">BCA</option>
+                        <option value="BBS">BBS</option>
+                        <option value="B.ED">B.ED</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="class">Class/Semester *</label>
+                    <select id="class" name="class" class="form-control" required>
+                        <option value="">-- Select Class/Semester --</option>
+                        <option value="1st Semester">1st Semester</option>
+                        <option value="2nd Semester">2nd Semester</option>
+                        <option value="3rd Semester">3rd Semester</option>
+                        <option value="4th Semester">4th Semester</option>
+                        <option value="5th Semester">5th Semester</option>
+                        <option value="6th Semester">6th Semester</option>
+                        <option value="7th Semester">7th Semester</option>
+                        <option value="8th Semester">8th Semester</option>
+                        <option value="1st Year">1st Year</option>
+                        <option value="2nd Year">2nd Year</option>
+                        <option value="3rd Year">3rd Year</option>
+                        <option value="4th Year">4th Year</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="platform">Platform/Manifesto</label>
+                <textarea name="platform" id="platform" class="form-control" placeholder="Enter candidate's platform or manifesto..."></textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label for="photo">Candidate Photo *</label>
+                    <input type="file" name="photo" id="photo" class="form-control" accept="image/*" required>
+                    <small style="color: #666;">Max size: 5MB. Formats: JPG, PNG, GIF</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="party_image">Party Logo/Image (Optional)</label>
+                    <input type="file" name="party_image" id="party_image" class="form-control" accept="image/*">
+                </div>
+            </div>
+
+            <div style="margin-top: 10px;">
+                <button type="submit" name="add" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                    <i class="fas fa-save"></i> Add Candidate
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 </body>
