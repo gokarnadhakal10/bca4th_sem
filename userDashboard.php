@@ -1351,7 +1351,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_position'])) {
                             <?php endif; ?>
                             
                             <?php if($my_request['status'] == 'approved'): ?>
-                                <p style="color: var(--success); font-weight: 500;">Good luck with your campaign! 🚀</p>
+                                <p style="color: var(--success); font-weight: 500;">Good luck with your campaign! </p>
                             <?php elseif($my_request['status'] == 'pending'): ?>
                                 <p style="color: var(--warning); font-weight: 500;">Please wait for admin approval.</p>
                                 <form action="withdraw_nomination.php" method="POST" onsubmit="return confirm('Are you sure you want to withdraw your nomination request? This action cannot be undone.');" style="margin-top: 15px;">
@@ -1370,6 +1370,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_position'])) {
                             <p>Fill out the form below to nominate yourself for the upcoming election.</p>
                         </div>
                         <div class="nomination-body">
+
+
                             <form action="request_candidate.php" method="POST" enctype="multipart/form-data">
                                 <div class="form-grid">
                                     <div class="form-group">
@@ -1380,35 +1382,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_position'])) {
                                         </div>
                                     </div>
                                     
-                                    <div class="form-group">
-                                        <label>Position Applying For</label>
-                                        <div style="position: relative;">
-                                            <i class="fas fa-chair" style="position: absolute; left: 12px; top: 14px; color: #aaa;"></i>
-                                            <select name="position" class="form-control" required style="padding-left: 35px;">
-                                                <option value="">-- Select Position --</option>
-                                                   
-
-
-                                                 <option value=" President">President</option>
-                                                  <option value="Vice President">Vice President</option>
-                                                 <option value="Secretary">Secretary</option>
-                                                 <option value="Treasurer">Treasurer</option>
 
 
 
-                                                <?php foreach($positions as $pos): ?>
-                                                    <option value="<?= htmlspecialchars($pos['position'] ?? '') ?>"><?= htmlspecialchars($pos['position'] ?? '') ?></option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="form-group full-width">
-                                        <label>Party / Affiliation Name</label>
-                                        <div style="position: relative;">
-                                            <i class="fas fa-flag" style="position: absolute; left: 12px; top: 14px; color: #aaa;"></i>
-                                            <input type="text" name="party" class="form-control" required placeholder="e.g. Independent, Student Union, etc." style="padding-left: 35px;">
-                                        </div>
+
+                                        <div class="form-group">
+    <label>Position Applying For</label>
+    <select name="position" id="position" class="form-control" required style="padding-left: 35px;">
+        <option value="">--Select Position--</option>
+        <?php foreach($positions as $pos): ?>
+            <option value="<?= htmlspecialchars($pos['position'] ?? '') ?>"><?= htmlspecialchars($pos['position'] ?? '') ?></option>
+        <?php endforeach; ?>
+    </select>
+</div>
+
+<!-- <div class="form-group full-width">
+    <label>Party / Affiliation Name</label>
+    <select name="party_name" id="party_name" class="form-control" required style="padding-left: 35px;">
+        <option value="">--Select Party--</option>
+        <option value="Nepali Congress">Nepali Congress</option>
+<option value="Communist Party of Nepal (UML)">UML</option>
+<option value="Communist Party of Nepal (Maoist Centre)">Communist Party of Nepal (Maoist Centre)</option>
+<option value="Rastriya Prajatantra Party">Rastriya Prajatantra Party</option>
+<option value="People's Socialist Party, Nepal">People's Socialist Party, Nepal</option>
+<option value="Janata Samajwadi Party">Janata Samajwadi Party</option>
+<option value="Rastriya Janamorcha">Rastriya Janamorcha</option>
+<option value="Bibeksheel Sajha Party">Bibeksheel Sajha Party</option>
+<option value="Independent">Independent</option>
+<option value="RSP">RSP</option> -->
+        
+          
+
+
+
+
+<div class="form-group full-width">
+    <label>Party / Affiliation Name</label>
+    <div style="position: relative;">
+        <i class="fas fa-flag" style="position: absolute; left: 12px; top: 14px; color: #aaa;"></i>
+        <input type="text" name="party_name" class="form-control" required 
+               placeholder="Enter party name (e.g. Independent, Student Union)" 
+               style="padding-left: 35px;">
+    </div>
+</div>
+
+
+
+        
+<div id="positionWarning" style="color:red; display:none; margin-top:5px;"></div>
+
+<div style="margin-top: 30px; text-align: center;">
+  
+
+
                                     </div>
 
                                     <div class="form-group">
@@ -1436,9 +1462,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_position'])) {
                                 </div>
                                 
                                 <div style="margin-top: 30px; text-align: center;">
-                                    <button type="submit" class="vote-btn" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); width: auto; padding: 12px 40px; font-size: 16px; display: inline-flex;">
+                                    <!-- <button type="submit" class="vote-btn" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); width: auto; padding: 12px 40px; font-size: 16px; display: inline-flex;">
                                         <i class="fas fa-paper-plane"></i> Submit Application
-                                    </button>
+                                    </button> -->
+
+
+
+<button type="submit" id="submitBtn" class="vote-btn" style="...">
+    <i class="fas fa-paper-plane"></i> Submit Application
+</button>
+
+
+
+                                    
                                 </div>
                             </form>
                         </div>
@@ -1912,4 +1948,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_position'])) {
         }
     </script>
 </body>
+
+
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$('#party_name, #position').on('change', function() {
+    let party = $('#party_name').val();
+    let position = $('#position').val();
+
+    if (party && position) {
+        $.post('check_party_position.php', { party: party, position: position }, function(data) {
+            if (data.exists === 1) {
+                $('#positionWarning').text("This position is already occupied by this party! Choose another party.").show();
+                $('#submitBtn').prop('disabled', true);
+            } else {
+                $('#positionWarning').hide();
+                $('#submitBtn').prop('disabled', false);
+            }
+        }, 'json');
+    } else {
+        $('#positionWarning').hide();
+        $('#submitBtn').prop('disabled', false);
+    }
+});
+</script>
+
+
+
+
 </html>

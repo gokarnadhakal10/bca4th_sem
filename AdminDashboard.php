@@ -47,6 +47,7 @@ $nomination_session = ($nomination_session_result && $nomination_session_result-
     'status' => 'Pending'
 ];
 
+
 // ===== AUTO-UPDATE SESSIONS ON PAGE LOAD =====
 $current_time_for_auto_update = date('Y-m-d H:i:s');
 
@@ -88,6 +89,10 @@ $is_voting_running = in_array($voting_status, ['Active', 'Paused', 'Scheduled'])
 
 // Only allow adding candidates during an active nomination period
 $can_add_candidate = in_array($nomination_status, ['Active', 'Scheduled']);
+
+// NEW: Restriction flags
+$is_nomination_active = in_array($nomination_status, ['Active', 'Paused', 'Scheduled']);
+$is_nomination_ended = ($nomination_status === 'Ended');
 
 // Current date for input validation
 $current_date_min = date('Y-m-d\TH:i');
@@ -684,7 +689,20 @@ if (!empty($notice['published_at'])) {
                             <div style="display:inline-flex; gap: 5px;">
                                 <form action="approve_request.php" method="post">
                                     <input type="hidden" name="id" value="<?= $r['id'] ?>">
-                                    <button type="submit" name="action" value="accept" class="btn btn-success" style="padding: 5px 10px; font-size: 12px;">Accept</button>
+                                    <!-- <button type="submit" name="action" value="accept" class="btn btn-success" style="padding: 5px 10px; font-size: 12px;">Accept</button> -->
+
+<?php if (!$is_nomination_ended): ?>
+    <button type="submit" name="action" value="accept" class="btn btn-success" style="padding: 5px 10px; font-size: 12px;">
+        Accept
+    </button>
+<?php else: ?>
+    <button type="button" class="btn btn-success disabled" style="padding: 5px 10px; font-size: 12px;" 
+        title="Cannot accept after nomination period has ended" disabled>
+        Accept
+    </button>
+<?php endif; ?>
+
+
                                 </form>
                                 <button type="button" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="openRejectModal(<?= $r['id'] ?>)">Reject</button>
                             </div>
@@ -780,11 +798,20 @@ if (!empty($notice['published_at'])) {
             <div class="action-card">
                 <div class="action-icon" style="background: #3f37c9;"><i class="fas fa-user-graduate"></i></div>
                 <h4>Add Voter</h4>
-                <?php if (!$is_election_locked): ?>
-                    <a href="studentRegistration.html" class="btn btn-info">Register Voter</a>
-                <?php else: ?>
-                    <a href="#" class="btn btn-info disabled" onclick="alert('Unable to add voters. This action is disabled during an active election.'); return false;" title="User registration is disabled during an active election.">Register Voter</a>
-                <?php endif; ?>
+                
+                <?php if (!$is_election_locked && !$is_nomination_active): ?>
+    <a href="studentRegistration.html" class="btn btn-info">Register Voter</a>
+<?php else: ?>
+    <a href="#" class="btn btn-info disabled"
+       onclick="alert('Cannot add voters during nomination or active election.'); return false;"
+       title="Disabled during nomination or election">
+       Register Voter
+    </a>
+<?php endif; ?>
+
+                    
+                  
+
             </div>
             <div class="action-card">
                 <div class="action-icon" style="background: #7209b7;"><i class="fas fa-bullhorn"></i></div>
