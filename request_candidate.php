@@ -123,8 +123,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     // Get party name from form
-    $party = trim($_POST['party'] ?? '');
     
+    $party = trim($_POST['party_name'] ?? '');
     // First, let's check what columns exist in the candidate_requests table
     $result = $conn->query("SHOW COLUMNS FROM candidate_requests");
     $columns = [];
