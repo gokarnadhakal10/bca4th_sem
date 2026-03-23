@@ -517,12 +517,32 @@ $requests = $conn->query("SELECT r.*, u.name AS voter_name
                 <p>Candidates</p>
             </div>
         </div>
+
+
+
+
+
+
+
+
+
         <div class="stat-card">
-            <div class="stat-icon" style="background: #f72585;"><i class="fas fa-vote-yea"></i></div>
+            <div class="stat-icon" style="background: #25f73a;"><i class="fas fa-vote-yea"></i></div>
             <div class="stat-info">
                 <h3><?= $totalVotes ?></h3>
                 <p>Total Votes</p>
             </div>
+
+
+
+
+
+
+
+
+
+
+
         </div>
     </div>
 

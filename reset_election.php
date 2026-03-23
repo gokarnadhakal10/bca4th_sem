@@ -28,10 +28,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset'])) {
         $files_to_delete[] = $row['party_image'];
     }
 
-    // 2. Truncate election tables
-    $conn->query("TRUNCATE TABLE votes");
-    $conn->query("TRUNCATE TABLE candidates");
-    $conn->query("TRUNCATE TABLE candidate_requests");
+
+
+
+    // // 2. Truncate election tables
+    // $conn->query("TRUNCATE TABLE votes");
+    // $conn->query("TRUNCATE TABLE candidates");
+    // $conn->query("TRUNCATE TABLE candidate_requests");
+
+
+
+
+
+    // Disable foreign key checks temporarily
+$conn->query("SET FOREIGN_KEY_CHECKS = 0");
+
+$conn->query("TRUNCATE TABLE votes");
+$conn->query("TRUNCATE TABLE candidates");
+$conn->query("TRUNCATE TABLE candidate_requests");
+
+// Enable back foreign key checks
+$conn->query("SET FOREIGN_KEY_CHECKS = 1");
+
+
+
+
+
+
 
     // 3. Reset session statuses
     $conn->query("UPDATE voting_session SET status = 'Pending', start_time = NULL, end_time = NULL, results_published = 0 WHERE id = 1");
